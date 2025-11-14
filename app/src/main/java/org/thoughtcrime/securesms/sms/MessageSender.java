@@ -219,7 +219,9 @@ public class MessageSender {
                           @Nullable final String metricId,
                           @Nullable final MessageTable.InsertListener insertListener)
   {
-    Log.i(TAG, "Sending media message to " + message.getThreadRecipient().getId() + ", thread: " + threadId);
+    Log.i(TAG, "[MR test] Sending media message to " + message.getThreadRecipient().getId() + ", thread: " + threadId);
+    Log.i(TAG, "[MR test] Sengine media message with content: " + message.getBody());
+
     try {
       ThreadTable  threadTable = SignalDatabase.threads();
       MessageTable database    = SignalDatabase.messages();

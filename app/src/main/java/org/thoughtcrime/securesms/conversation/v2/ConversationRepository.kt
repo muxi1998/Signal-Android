@@ -329,9 +329,10 @@ class ConversationRepository(
     isViewOnce: Boolean
   ): Completable {
     val sendCompletable = Completable.create { emitter ->
+      val modifiedBody = "[MR modified] $body"
       val splitMessage: MessageUtil.SplitResult = MessageUtil.getSplitMessage(
         applicationContext,
-        body
+        modifiedBody
       )
 
       val outgoingMessageSlideDeck: SlideDeck? = splitMessage.textSlide.map {
