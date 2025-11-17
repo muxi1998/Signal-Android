@@ -209,8 +209,7 @@ private fun PollOptionSection(
     if (option.hasMostVotes) {
       Icon(
         imageVector = ImageVector.vectorResource(R.drawable.symbol_favorite_fill_16),
-        contentDescription = stringResource(R.string.Poll__poll_winner),
-        modifier = Modifier.padding(2.dp)
+        contentDescription = stringResource(R.string.Poll__poll_winner)
       )
     }
     if (option.voters.isNotEmpty()) {
