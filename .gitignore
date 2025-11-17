@@ -32,3 +32,9 @@ maps.key
 /local/
 kls_database.db
 .kotlin
+
+CLAUDE.md
+.specify/
+.claude/
+mx_dev/
+specs/

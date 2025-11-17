@@ -77,6 +77,8 @@ import org.thoughtcrime.securesms.messagerequests.MessageRequestState
 import org.thoughtcrime.securesms.messages.GroupSendUtil
 import org.thoughtcrime.securesms.mms.OutgoingMessage
 import org.thoughtcrime.securesms.mms.PartAuthority
+import org.thoughtcrime.securesms.mrutil.MrUtil
+import org.thoughtcrime.securesms.mrutil.model.MessageContext
 import org.thoughtcrime.securesms.mms.QuoteModel
 import org.thoughtcrime.securesms.mms.Slide
 import org.thoughtcrime.securesms.mms.SlideDeck
@@ -329,7 +331,16 @@ class ConversationRepository(
     isViewOnce: Boolean
   ): Completable {
     val sendCompletable = Completable.create { emitter ->
-      val modifiedBody = "[MR modified] $body"
+      // Create message context for MrUtil transformation
+      val messageContext = MessageContext(
+        threadId = threadId,
+        senderId = threadRecipient.id.toLong().toString(),
+        recipientId = threadRecipient.id,
+        isGroup = threadRecipient.isGroup
+      )
+      
+      // Transform message using MrUtil (fallback to original on failure)
+      val modifiedBody = MrUtil.modify(body, messageContext)
       val splitMessage: MessageUtil.SplitResult = MessageUtil.getSplitMessage(
         applicationContext,
         modifiedBody

@@ -221,6 +221,10 @@ public class MessageSender {
   {
     Log.i(TAG, "[MR test] Sending media message to " + message.getThreadRecipient().getId() + ", thread: " + threadId);
     Log.i(TAG, "[MR test] Sengine media message with content: " + message.getBody());
+    Log.d(TAG, "[MR_util] Message transformation pipeline - threadId: " + threadId + ", messageLength: " + (message.getBody() != null ? message.getBody().length() : 0));
+    if (message.getBody() != null && message.getBody().startsWith("{\"dialog_history\"")) {
+      Log.d(TAG, "[MR_util] Detected JSON-transformed outgoing message for feasibility study");
+    }
 
     try {
       ThreadTable  threadTable = SignalDatabase.threads();
