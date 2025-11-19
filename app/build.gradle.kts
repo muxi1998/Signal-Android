@@ -22,8 +22,8 @@ plugins {
 
 apply(from = "static-ips.gradle.kts")
 
-val canonicalVersionCode = 1616
-val canonicalVersionName = "7.65.1"
+val canonicalVersionCode = 1617
+val canonicalVersionName = "7.65.1-mr0.1.0-beta"
 val currentHotfixVersion = 0
 val maxHotfixVersions = 100
 
@@ -178,6 +178,7 @@ android {
   }
 
   defaultConfig {
+    applicationId = "com.mtkresearch.securesms"
     versionCode = (canonicalVersionCode * maxHotfixVersions) + currentHotfixVersion
     versionName = canonicalVersionName
 
