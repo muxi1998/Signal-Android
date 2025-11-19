@@ -4418,12 +4418,15 @@ class ConversationFragment :
 
             Log.d("ConversationFragment", "Input field bounds: $bounds")
 
-            // Show spark icon with current text
+            // Show spark icon with current text and thread ID
             val currentText = composeText.textTrimmed.toString()
+            val threadId = args.threadId
+            
             Log.d("ConversationFragment", "Current text: '$currentText'")
+            Log.d("ConversationFragment", "Thread ID: $threadId")
 
             Log.d("ConversationFragment", "Calling manager.showSparkIcon...")
-            manager.showSparkIcon(bounds, currentText)
+            manager.showSparkIcon(bounds, currentText, threadId)
             Log.d("ConversationFragment", "manager.showSparkIcon call completed")
           } else {
             Log.d("ConversationFragment", "AI Assistant: Text field focus lost")

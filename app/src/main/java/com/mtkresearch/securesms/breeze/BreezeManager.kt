@@ -11,6 +11,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.signal.core.util.logging.Log
 import com.mtkresearch.securesms.breeze.ui.BreezeFloatingWindow
+import com.mtkresearch.securesms.edgeai.EdgeAI
+import com.mtkresearch.securesms.edgeai.usecases.HistoryInJSON
 
 /**
  * Simplified main manager for Breeze AI Floating Assistant.
@@ -40,9 +42,11 @@ class BreezeManager private constructor(
   private var floatingWindow: BreezeFloatingWindow? = null
   private var sparkIcon: SparkIcon? = null
 
-  // AI state
+  // AI state  
   private var currentSession: AISession? = null
   private var previousSummary: String = ""
+  private var currentThreadId: Long? = null
+  private var originalInputText: String = "" // Track original user input for History JSON
   
   // Text injection callback - set by ConversationFragment
   private var textInjectionCallback: ((String) -> Unit)? = null
@@ -73,15 +77,17 @@ class BreezeManager private constructor(
    * Show spark icon when input field is focused.
    * Called from ConversationFragment.
    */
-  fun showSparkIcon(inputBounds: Rect, inputText: String) {
+  fun showSparkIcon(inputBounds: Rect, inputText: String, threadId: Long) {
     scope.launch {
       try {
+        // Store thread ID for AI session
+        currentThreadId = threadId
+
         Log.d(TAG, "===============================")
         Log.d(TAG, "showSparkIcon called with:")
         Log.d(TAG, "  bounds: $inputBounds")
         Log.d(TAG, "  text: '$inputText'")
-        Log.d(TAG, "  context: $context")
-        Log.d(TAG, "  scope: $scope")
+        Log.d(TAG, "  threadId: $threadId")
         Log.d(TAG, "===============================")
 
         hideFloatingWindow()
@@ -149,8 +155,11 @@ class BreezeManager private constructor(
   private fun onSparkIconTapped(inputBounds: Rect, inputText: String) {
     scope.launch {
       try {
-        // Create new AI session
-        currentSession = AISession.create(inputText, previousSummary)
+        // Store original input text for History JSON feature
+        originalInputText = inputText
+        
+        // Create new AI session with thread ID
+        currentSession = AISession.create(inputText, previousSummary, currentThreadId)
 
         // Hide spark icon
         hideSparkIcon()
@@ -224,8 +233,8 @@ class BreezeManager private constructor(
         // Move current to previous
         previousSummary = session.currentSuggestion
 
-        // Generate new suggestion with tone
-        session.applyTone(toneType)
+        // Generate new suggestion with tone, using original input text for History JSON
+        session.applyTone(toneType, originalInputText)
 
         // Update window
         floatingWindow?.updateSession(session)
@@ -254,16 +263,18 @@ class BreezeManager private constructor(
 }
 
 /**
- * Simple AI Session following the enhanced spec placeholder strings.
+ * AI Session that leverages EdgeAI usecases.
+ * Currently uses "Make History in JSON" mock AI feature.
  */
 class AISession private constructor(
   private val originalText: String,
-  private var previousText: String
+  private var previousText: String,
+  private val threadId: Long? = null
 ) {
 
   companion object {
-    fun create(text: String, previous: String): AISession {
-      val session = AISession(text, previous)
+    fun create(text: String, previous: String, threadId: Long? = null): AISession {
+      val session = AISession(text, previous, threadId)
       session.generateInitialSuggestion()
       return session
     }
@@ -279,23 +290,41 @@ class AISession private constructor(
     currentSuggestion = if (originalText.isBlank()) {
       "AI refined your text."
     } else {
-      "AI refined your text." // Using spec's initial refine placeholder
+      "AI refined your text."
     }
   }
 
-  fun applyTone(toneType: ToneType) {
+  fun applyTone(toneType: ToneType, currentInputText: String = originalText) {
     // Move current to previous
     if (currentSuggestion.isNotBlank()) {
       previousSummary = currentSuggestion
     }
 
-    // Generate new suggestion based on tone (using spec's exact strings)
+    // Generate new suggestion based on tone with optional context awareness
+    val contextPrefix = if (threadId != null) "[Context+${toneType}] " else "[${toneType}] "
+    
     currentSuggestion = when (toneType) {
-      ToneType.FORMAL -> "[Formal] AI rewrote your message formally."
-      ToneType.FRIENDLY -> "[Friendly] Here's a friendlier version."
-      ToneType.CLARITY -> "[Clearer] Improved clarity."
-      ToneType.SHORTEN -> "[Shortened] Condensed version."
-      ToneType.EXPAND -> "[Expanded] Added detail."
+      ToneType.FORMAL -> "${contextPrefix}AI rewrote your message formally."
+      ToneType.FRIENDLY -> "${contextPrefix}Here's a friendlier version."
+      ToneType.CLARITY -> "${contextPrefix}Improved clarity."
+      ToneType.SHORTEN -> "${contextPrefix}Condensed version."
+      ToneType.EXPAND -> "${contextPrefix}Added detail."
+      ToneType.HISTORY_JSON -> {
+        // Use EdgeAI "Make History in JSON" usecase for this preset
+        if (threadId != null) {
+          try {
+            val request = HistoryInJSON.Request(
+              inputText = currentInputText,
+              threadId = threadId
+            )
+            EdgeAI.executeUsecase("history_in_json", request)
+          } catch (e: Exception) {
+            "${contextPrefix}History JSON formatting failed."
+          }
+        } else {
+          "${contextPrefix}History not available."
+        }
+      }
     }
   }
 }
@@ -304,5 +333,5 @@ class AISession private constructor(
  * Tone types from the enhanced spec.
  */
 enum class ToneType {
-  FORMAL, FRIENDLY, CLARITY, SHORTEN, EXPAND
+  HISTORY_JSON, FORMAL, FRIENDLY, CLARITY, SHORTEN, EXPAND
 }

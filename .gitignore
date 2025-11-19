@@ -37,4 +37,6 @@ CLAUDE.md
 .specify/
 .claude/
 mx_dev/
+specs/app/playProd/release/*.aab
+app/playProd/
 specs/

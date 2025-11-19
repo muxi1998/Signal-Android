@@ -484,14 +484,8 @@ private class BreezeWindowView(
     }
     contentLayout.addView(currentSuggestionView)
 
-    // Tone/Clarity Chips (per spec)
-    toneChipsContainer = LinearLayout(context).apply {
-      orientation = LinearLayout.HORIZONTAL
-      layoutParams = LinearLayout.LayoutParams(
-        LayoutParams.MATCH_PARENT,
-        LayoutParams.WRAP_CONTENT
-      )
-    }
+    // Tone/Clarity Chips with wrapping layout for better UX
+    toneChipsContainer = createWrappingChipsLayout()
     createToneChips()
     contentLayout.addView(toneChipsContainer)
 
@@ -515,50 +509,84 @@ private class BreezeWindowView(
     addView(slideHandle)
   }
 
+  private fun createWrappingChipsLayout(): LinearLayout {
+    // Create horizontal scroll view for compact single-row layout
+    val scrollView = android.widget.HorizontalScrollView(context).apply {
+      layoutParams = LinearLayout.LayoutParams(
+        LayoutParams.MATCH_PARENT,
+        LayoutParams.WRAP_CONTENT
+      )
+      isHorizontalScrollBarEnabled = false // Hide scrollbar for cleaner UI
+      isHorizontalFadingEdgeEnabled = true // Visual indicator for scrollable content
+      setFadingEdgeLength(24.dpToPx()) // Subtle fade edge
+      setPadding(4.dpToPx(), 0, 4.dpToPx(), 0) // Small padding for fade edge
+    }
+    
+    val chipsContainer = LinearLayout(context).apply {
+      orientation = LinearLayout.HORIZONTAL // Single row layout
+      layoutParams = LinearLayout.LayoutParams(
+        LayoutParams.WRAP_CONTENT,
+        LayoutParams.WRAP_CONTENT
+      )
+      setPadding(8.dpToPx(), 0, 8.dpToPx(), 0) // Padding so chips don't touch edges
+    }
+    
+    scrollView.addView(chipsContainer)
+    
+    // Create a wrapper to hold the scroll view (since we need to return LinearLayout)
+    val wrapper = LinearLayout(context).apply {
+      orientation = LinearLayout.VERTICAL
+      layoutParams = LinearLayout.LayoutParams(
+        LayoutParams.MATCH_PARENT,
+        LayoutParams.WRAP_CONTENT
+      )
+    }
+    wrapper.addView(scrollView)
+    
+    // Store reference to the actual chips container for adding chips
+    wrapper.tag = chipsContainer
+    return wrapper
+  }
+
   private fun createToneChips() {
     // Spec: Tone/Clarity chips trigger new AI refinement (lines 147, 320-322)
     val toneTypes = listOf(
+      ToneType.HISTORY_JSON to "History",  // First option for AI preset
       ToneType.FORMAL to "Formal",
       ToneType.FRIENDLY to "Friendly", 
       ToneType.CLARITY to "Clear",
       ToneType.SHORTEN to "Short",
       ToneType.EXPAND to "Expand"
+      // All options now available with horizontal scroll - no overflow issues!
     )
 
-    toneTypes.forEachIndexed { index, (type, label) ->
+    // Get the actual chips container from the wrapper's tag
+    val actualContainer = (toneChipsContainer.tag as? LinearLayout) ?: toneChipsContainer
+    
+    toneTypes.forEach { (type, label) ->
       val chip = TextView(context).apply {
         text = label
-        textSize = 13f // Slightly larger for better touch target
-        setTextColor(Color.argb(255, 0, 0, 0)) // Black text for readability
-        
-        // Enhanced chip styling for better visibility and touch
+        textSize = 13f
+        setTextColor(Color.argb(255, 0, 0, 0))
         background = createChipBackground()
-        setPadding(16.dpToPx(), 8.dpToPx(), 16.dpToPx(), 8.dpToPx()) // Larger padding for better touch
+        setPadding(14.dpToPx(), 6.dpToPx(), 14.dpToPx(), 6.dpToPx())
         
         layoutParams = LinearLayout.LayoutParams(
           LayoutParams.WRAP_CONTENT,
           LayoutParams.WRAP_CONTENT
         ).apply {
-          rightMargin = if (index < toneTypes.size - 1) 10.dpToPx() else 0 // Spacing between chips
-          topMargin = 4.dpToPx()
-          bottomMargin = 4.dpToPx()
+          rightMargin = 8.dpToPx() // Spacing between chips in horizontal layout
         }
         
         // Robust click handling per spec (tap chips → trigger new AI refinement)
         setOnClickListener { view ->
           Log.d("BreezeFloatingWindow", "=== TONE CHIP CLICKED ===")
           Log.d("BreezeFloatingWindow", "Chip: $label ($type)")
-          Log.d("BreezeFloatingWindow", "View: $view")
-          Log.d("BreezeFloatingWindow", "Clickable: ${view.isClickable}")
-          Log.d("BreezeFloatingWindow", "Enabled: ${view.isEnabled}")
           
           try {
             // Trigger tone change with visual feedback
             view.alpha = 0.6f
-            view.postDelayed({
-              view.alpha = 1.0f
-            }, 100)
-            
+            view.postDelayed({ view.alpha = 1.0f }, 100)
             onToneChange(type)
             Log.d("BreezeFloatingWindow", "Tone change triggered successfully for $type")
           } catch (e: Exception) {
@@ -566,36 +594,16 @@ private class BreezeWindowView(
           }
         }
         
-        // Enhanced touch properties for reliability
         isClickable = true
         isFocusable = true
         isEnabled = true
-        
-        // Add touch feedback
-        setOnTouchListener { view, event ->
-          when (event.action) {
-            MotionEvent.ACTION_DOWN -> {
-              Log.d("BreezeFloatingWindow", "Tone chip touch DOWN: $label")
-              view.alpha = 0.7f
-              false // Allow click to proceed
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-              Log.d("BreezeFloatingWindow", "Tone chip touch UP/CANCEL: $label")
-              view.alpha = 1.0f
-              false // Allow click to proceed
-            }
-            else -> false
-          }
-        }
-        
-        Log.d("BreezeFloatingWindow", "Created tone chip: $label (clickable=$isClickable, enabled=$isEnabled)")
       }
       
-      toneChipsContainer.addView(chip)
-      Log.d("BreezeFloatingWindow", "Added tone chip $index to container: $label")
+      actualContainer.addView(chip)
+      Log.d("BreezeFloatingWindow", "Added chip '$label' to horizontal scroll container")
     }
     
-    Log.d("BreezeFloatingWindow", "Tone chips container setup complete. Child count: ${toneChipsContainer.childCount}")
+    Log.d("BreezeFloatingWindow", "Horizontal scrollable tone chips setup complete. Total: ${toneTypes.size}")
   }
 
   fun updateSession(newSession: AISession) {
@@ -741,20 +749,25 @@ private class BreezeWindowView(
       if (containerBounds.contains(x.toInt(), y.toInt())) {
         Log.d("BreezeFloatingWindow", "Touch is within tone chips container")
         
-        // Check each tone chip
-        for (i in 0 until toneChipsContainer.childCount) {
-          val child = toneChipsContainer.getChildAt(i)
-          if (child.visibility == View.VISIBLE && child.isClickable) {
-            val childBounds = Rect()
-            child.getHitRect(childBounds)
-            // Convert child bounds to container coordinate system
-            childBounds.offset(containerBounds.left, containerBounds.top)
-            
-            Log.d("BreezeFloatingWindow", "Checking tone chip $i bounds: $childBounds")
-            
-            if (childBounds.contains(x.toInt(), y.toInt())) {
-              Log.d("BreezeFloatingWindow", "Found tone chip $i at touch location!")
-              return child
+        // For horizontal scroll layout, find the actual chips container
+        val actualChipsContainer = findHorizontalChipsContainer(toneChipsContainer)
+        if (actualChipsContainer != null) {
+          val scrollBounds = Rect()
+          actualChipsContainer.getHitRect(scrollBounds)
+          scrollBounds.offset(containerBounds.left, containerBounds.top)
+          
+          // Check each chip in horizontal layout
+          for (chipIndex in 0 until actualChipsContainer.childCount) {
+            val chip = actualChipsContainer.getChildAt(chipIndex)
+            if (chip.visibility == View.VISIBLE && chip.isClickable) {
+              val chipBounds = Rect()
+              chip.getHitRect(chipBounds)
+              chipBounds.offset(scrollBounds.left, scrollBounds.top)
+              
+              if (chipBounds.contains(x.toInt(), y.toInt())) {
+                Log.d("BreezeFloatingWindow", "Found chip at position $chipIndex in horizontal scroll")
+                return chip
+              }
             }
           }
         }
@@ -782,6 +795,11 @@ private class BreezeWindowView(
     }
     
     return null
+  }
+  
+  private fun findHorizontalChipsContainer(wrapper: LinearLayout): LinearLayout? {
+    // The actual chips container is stored in the wrapper's tag
+    return wrapper.tag as? LinearLayout
   }
   
   private fun isTouchOnSlideHandle(x: Float, y: Float): Boolean {
