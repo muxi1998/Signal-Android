@@ -1,6 +1,7 @@
 package com.mtkresearch.securesms.breeze.ui
 
 import android.animation.ValueAnimator
+import android.view.animation.LinearInterpolator
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -86,6 +87,7 @@ class BreezeFloatingWindow private constructor(
     windowView = BreezeWindowView(
       context,
       session,
+      anchorBounds,
       onAccept,
       onDismiss,
       onResize,
@@ -366,6 +368,7 @@ class BreezeFloatingWindow private constructor(
 private class BreezeWindowView(
   context: Context,
   private var session: AISession,
+  private val anchorBounds: Rect,
   private val onAccept: () -> Unit,
   private val onDismiss: () -> Unit,
   private val onResize: (Int, Int, Int, Int) -> Unit,
@@ -496,16 +499,25 @@ private class BreezeWindowView(
     slideHandle = SlideHandleView(context, ::handleSlideGesture)
     slideHandle.layoutParams = LayoutParams(
       200.dpToPx(), // Fixed width to leave space for drag/resize
-      36.dpToPx()
+      70.dpToPx() // Balanced height for hint visibility while keeping bar close to bottom
     ).apply {
       gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+      setMargins(0, 0, 0, 4.dpToPx()) // Small margin for visual balance
     }
     // Setup window movement callback for slide gestures (spec Line 160)
     slideHandle.setWindowMoveCallback { offsetY ->
       onSlideTemporaryMove(offsetY.toInt())
     }
+    
+    // Note: Contextual positioning will be set in animateIn() after layout
+    
     slideHandle.setBackgroundColor(Color.TRANSPARENT)
     slideHandle.isClickable = true // Re-enable slide handle
+    
+    // Allow hints to draw outside container bounds
+    clipChildren = false
+    clipToPadding = false
+    
     addView(slideHandle)
   }
 
@@ -968,6 +980,32 @@ private class BreezeWindowView(
           .scaleY(1f)
           .setDuration(100)
           .setInterpolator(OvershootInterpolator(0.3f))
+          .withEndAction {
+            // Set contextual arrow text based on input field position
+            val windowLocation = IntArray(2)
+            this@BreezeWindowView.getLocationOnScreen(windowLocation)
+            slideHandle.setInputFieldPosition(windowLocation[1], anchorBounds.top)
+            
+            // Add subtle pulse to slide handle to hint at interaction
+            slideHandle.animate()
+              .scaleX(1.1f)
+              .scaleY(1.1f)
+              .setDuration(400)
+              .setInterpolator(AccelerateDecelerateInterpolator())
+              .withEndAction {
+                slideHandle.animate()
+                  .scaleX(1f)
+                  .scaleY(1f)
+                  .setDuration(400)
+                  .setInterpolator(AccelerateDecelerateInterpolator())
+                  .withEndAction {
+                    // Start hint arrows after handle pulse completes
+                    slideHandle.startHintAnimation()
+                  }
+                  .start()
+              }
+              .start()
+          }
           .start()
       }
       .start()
@@ -1030,46 +1068,230 @@ private class SlideHandleView(
   context: Context,
   private val onSlide: (SlideDirection) -> Unit
 ) : View(context) {
+  
+  // Track input field position relative to this view for contextual hints
+  private var isInputFieldBelow = true // Default assumption
 
   private var startY = 0f
   private var isDragging = false
   private var currentOffset = 0f
   private val sliderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-    color = Color.argb(180, 255, 255, 255) // More visible white handle
+    color = Color.argb(220, 255, 165, 0) // Orange handle color
     style = Paint.Style.FILL
   }
+  
+  // Hint arrows animation
+  private var showHints = true
+  private var hintAnimationProgress = 0f
+  
+  private val acceptTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    color = Color.argb(220, 76, 175, 80) // Green for Accept
+    style = Paint.Style.FILL
+    textSize = 12.dpToPx().toFloat()
+    textAlign = Paint.Align.CENTER
+    isFakeBoldText = true // Make text bold for better visibility
+  }
+  
+  private val dismissTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    color = Color.argb(220, 244, 67, 54) // Red for Dismiss  
+    style = Paint.Style.FILL
+    textSize = 12.dpToPx().toFloat()
+    textAlign = Paint.Align.CENTER
+    isFakeBoldText = true // Make text bold for better visibility
+  }
+  
+  private val acceptArrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    color = Color.argb(220, 76, 175, 80) // Green arrows for Accept
+    style = Paint.Style.FILL
+  }
+  
+  private val dismissArrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    color = Color.argb(220, 244, 67, 54) // Red arrows for Dismiss
+    style = Paint.Style.FILL
+  }
+  
   
   // Callback to move parent window during slide
   private var onWindowMove: ((Float) -> Unit)? = null
   
+  init {
+    // Allow drawing hints outside view bounds
+    setWillNotDraw(false)
+  }
+  
   fun setWindowMoveCallback(callback: (Float) -> Unit) {
     onWindowMove = callback
   }
+  
+  fun setInputFieldPosition(windowY: Int, inputY: Int) {
+    isInputFieldBelow = inputY > windowY
+    Log.d("BreezeFloatingWindow", "Input field positioning: windowY=$windowY, inputY=$inputY, isBelow=$isInputFieldBelow")
+  }
+  
+  fun startHintAnimation() {
+    if (!showHints) return
+    
+    Log.d("BreezeFloatingWindow", "Starting hint arrow animation")
+    
+    // 3 bounce cycles over 3 seconds, then fade out
+    val animator = ValueAnimator.ofFloat(0f, kotlin.math.PI.toFloat() * 3)
+    animator.apply {
+      duration = 3000
+      interpolator = LinearInterpolator()
+      addUpdateListener { animation ->
+        hintAnimationProgress = animation.animatedValue as Float
+        invalidate()
+      }
+      addListener(object : android.animation.AnimatorListenerAdapter() {
+        override fun onAnimationStart(animation: android.animation.Animator) {
+          Log.d("BreezeFloatingWindow", "Hint animation started")
+        }
+        override fun onAnimationEnd(animation: android.animation.Animator) {
+          Log.d("BreezeFloatingWindow", "Hint animation ended")
+          showHints = false
+          invalidate()
+        }
+      })
+      start()
+    }
+  }
+  
+  fun dismissHints() {
+    if (showHints) {
+      showHints = false
+      clearAnimation()
+      invalidate()
+    }
+  }
 
   override fun onDraw(canvas: Canvas) {
-    // Draw simple slider handle - make it more visible
-    val handleWidth = 50.dpToPx().toFloat() // Wider
-    val handleHeight = 6.dpToPx().toFloat() // Taller
+    // Enhanced pill-shaped handle with grip lines - positioned at bottom
+    val handleWidth = 80.dpToPx().toFloat() // Much longer handle for better interaction
+    val handleHeight = 12.dpToPx().toFloat() // Much thicker handle
     val handleX = (width - handleWidth) / 2
-    val handleY = (height - handleHeight) / 2
+    val handleY = height - handleHeight - 8.dpToPx() // Balanced position for hint visibility
     
-    // Draw background for better visibility
-    val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-      color = Color.argb(80, 0, 0, 0) // Semi-transparent dark background
+    // Draw subtle background shadow
+    val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = Color.argb(40, 0, 0, 0)
       style = Paint.Style.FILL
     }
-    val bgRect = RectF(handleX - 4, handleY - 2, handleX + handleWidth + 4, handleY + handleHeight + 2)
-    canvas.drawRoundRect(bgRect, (handleHeight + 4) / 2, (handleHeight + 4) / 2, bgPaint)
-
+    val shadowOffset = 1.dpToPx().toFloat()
     canvas.drawRoundRect(
-      handleX,
-      handleY,
-      handleX + handleWidth,
-      handleY + handleHeight,
-      handleHeight / 2,
-      handleHeight / 2,
+      handleX, handleY + shadowOffset,
+      handleX + handleWidth, handleY + handleHeight + shadowOffset,
+      handleHeight / 2, handleHeight / 2, shadowPaint
+    )
+
+    // Draw main pill-shaped handle
+    canvas.drawRoundRect(
+      handleX, handleY,
+      handleX + handleWidth, handleY + handleHeight,
+      handleHeight / 2, handleHeight / 2,
       sliderPaint
     )
+    
+    // Draw grip lines for affordance
+    val gripPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = Color.argb(120, 0, 0, 0) // Semi-transparent dark lines
+      style = Paint.Style.STROKE
+      strokeWidth = 1.dpToPx().toFloat()
+      strokeCap = Paint.Cap.ROUND
+    }
+    
+    val gripY = handleY + handleHeight / 2
+    val grip1X = handleX + handleWidth / 2 - 8.dpToPx()
+    val grip2X = handleX + handleWidth / 2
+    val grip3X = handleX + handleWidth / 2 + 8.dpToPx()
+    val gripLength = 3.dpToPx().toFloat()
+    
+    // Three small grip lines
+    canvas.drawLine(grip1X, gripY - gripLength/2, grip1X, gripY + gripLength/2, gripPaint)
+    canvas.drawLine(grip2X, gripY - gripLength/2, grip2X, gripY + gripLength/2, gripPaint)
+    canvas.drawLine(grip3X, gripY - gripLength/2, grip3X, gripY + gripLength/2, gripPaint)
+    
+    // Draw animated hint arrows if enabled
+    if (showHints) {
+      drawHintArrows(canvas, handleX, handleY, handleWidth, handleHeight)
+    }
+  }
+  
+  private fun drawHintArrows(canvas: Canvas, handleX: Float, handleY: Float, handleWidth: Float, handleHeight: Float) {
+    val bounce = kotlin.math.sin(hintAnimationProgress) * 3.dpToPx() // 3dp bounce
+    
+    // Keep arrows visible for first 2.5 seconds, then fade out in last 0.5 seconds
+    val fadeStartProgress = kotlin.math.PI.toFloat() * 2.5f // Start fading after 2.5 cycles
+    val alpha = if (hintAnimationProgress < fadeStartProgress) {
+      200 // Full opacity for most of the animation
+    } else {
+      val fadeProgress = (hintAnimationProgress - fadeStartProgress) / (kotlin.math.PI * 0.5f)
+      (200 * (1 - fadeProgress)).toInt().coerceAtLeast(0)
+    }
+    
+    if (alpha <= 0) return // Skip drawing if fully transparent
+    
+    val arrowSize = 6.dpToPx().toFloat() // Larger arrows for visibility
+    // Position arrows above and below handle center, not to the side
+    val arrowX = handleX + handleWidth / 2 // Center horizontally with handle
+    
+    // Up arrow and text (above handle) - with contextual colors
+    val upArrowY = handleY - 12.dpToPx() - bounce // Compact spacing above handle
+    val isUpAccept = !isInputFieldBelow
+    val upArrowPaint = if (isUpAccept) acceptArrowPaint else dismissArrowPaint
+    val upTextPaint = if (isUpAccept) acceptTextPaint else dismissTextPaint
+    
+    upArrowPaint.alpha = alpha
+    drawArrow(canvas, arrowX, upArrowY, arrowSize, true, upArrowPaint) // true = pointing up
+    
+    // Up text hint
+    upTextPaint.alpha = alpha
+    
+    // Contextual text based on input field position
+    val upText = if (isInputFieldBelow) "Dismiss" else "Accept"
+    val upTextY = upArrowY - 6.dpToPx() // Tight spacing above arrow
+    val upTextBounds = Rect()
+    upTextPaint.getTextBounds(upText, 0, upText.length, upTextBounds)
+    
+    // Draw text without background
+    canvas.drawText(upText, arrowX, upTextY, upTextPaint)
+    
+    // Down arrow and text (below handle) - positioned to be visible
+    val downArrowY = handleY + handleHeight + 6.dpToPx() + bounce // Good spacing from handle
+    val isDownAccept = isInputFieldBelow
+    val downArrowPaint = if (isDownAccept) acceptArrowPaint else dismissArrowPaint
+    val downTextPaint = if (isDownAccept) acceptTextPaint else dismissTextPaint
+    
+    downArrowPaint.alpha = alpha
+    drawArrow(canvas, arrowX, downArrowY, arrowSize, false, downArrowPaint) // false = pointing down
+    
+    // Down text hint - ensure it's visible (can extend beyond view bounds)
+    downTextPaint.alpha = alpha
+    val downText = if (isDownAccept) "Accept" else "Dismiss"
+    val downTextY = downArrowY + arrowSize + 12.dpToPx() // Enough space for text visibility
+    val downTextBounds = Rect()
+    downTextPaint.getTextBounds(downText, 0, downText.length, downTextBounds)
+    
+    // Draw text without background - will be visible even if extends beyond view
+    canvas.drawText(downText, arrowX, downTextY, downTextPaint)
+  }
+  
+  private fun drawArrow(canvas: Canvas, x: Float, y: Float, size: Float, pointingUp: Boolean, paint: Paint) {
+    val path = Path().apply {
+      if (pointingUp) {
+        // Up arrow: ^
+        moveTo(x, y)
+        lineTo(x - size, y + size)
+        lineTo(x + size, y + size)
+        close()
+      } else {
+        // Down arrow: v
+        moveTo(x, y + size)
+        lineTo(x - size, y)
+        lineTo(x + size, y)
+        close()
+      }
+    }
+    canvas.drawPath(path, paint)
   }
 
   override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -1078,6 +1300,7 @@ private class SlideHandleView(
       MotionEvent.ACTION_DOWN -> {
         startY = event.y
         isDragging = true
+        dismissHints() // Hide hints when user starts interacting
         return true
       }
 
