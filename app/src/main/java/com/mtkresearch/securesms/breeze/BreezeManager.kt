@@ -44,6 +44,9 @@ class BreezeManager private constructor(
   private var currentSession: AISession? = null
   private var previousSummary: String = ""
   
+  // Text injection callback - set by ConversationFragment
+  private var textInjectionCallback: ((String) -> Unit)? = null
+  
   // App backgrounding detection per spec (Line 218)
   private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
@@ -116,6 +119,23 @@ class BreezeManager private constructor(
   }
 
   /**
+   * Set text injection callback for communication with ConversationFragment.
+   * This allows BreezeManager to inject AI suggestions into the compose text field.
+   */
+  fun setTextInjectionCallback(callback: (String) -> Unit) {
+    textInjectionCallback = callback
+    Log.d(TAG, "Text injection callback registered")
+  }
+  
+  /**
+   * Clear text injection callback when ConversationFragment is destroyed.
+   */
+  fun clearTextInjectionCallback() {
+    textInjectionCallback = null
+    Log.d(TAG, "Text injection callback cleared")
+  }
+
+  /**
    * Hide floating window and spark icon.
    */
   fun hideAll() {
@@ -170,12 +190,23 @@ class BreezeManager private constructor(
   private fun onAcceptSuggestion() {
     scope.launch {
       currentSession?.let { session ->
-        // TODO: Inject text into input field (requires accessibility service)
-        Log.d(TAG, "Would inject: ${session.currentSuggestion}")
-
-        // Move current suggestion to previous summary
-        previousSummary = session.currentSuggestion
+        val textToInject = session.currentSuggestion
+        Log.d(TAG, "Accepting suggestion: '$textToInject'")
+        
+        // Inject text using callback to ConversationFragment
+        textInjectionCallback?.let { callback ->
+          Log.d(TAG, "Injecting text via callback...")
+          callback(textToInject)
+          
+          // Move current suggestion to previous summary
+          previousSummary = session.currentSuggestion
+        } ?: run {
+          Log.w(TAG, "No text injection callback available! Cannot inject text: '$textToInject'")
+        }
+      } ?: run {
+        Log.w(TAG, "No current session available for text injection")
       }
+      
       hideFloatingWindow()
     }
   }
@@ -211,6 +242,9 @@ class BreezeManager private constructor(
     scope.launch {
       hideAll()
     }
+    
+    // Clear text injection callback
+    clearTextInjectionCallback()
     
     // Unregister lifecycle callbacks
     if (context is Application) {

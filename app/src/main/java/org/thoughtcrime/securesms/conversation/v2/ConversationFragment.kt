@@ -1369,6 +1369,12 @@ class ConversationFragment :
         Log.d("ConversationFragment", "Permissions granted, initializing BreezeManager...")
         // Initialize the simplified Breeze manager
         breezeManager = BreezeManager.getInstance(requireContext())
+        
+        // Register text injection callback
+        breezeManager!!.setTextInjectionCallback { textToInject ->
+          this@ConversationFragment.injectTextIntoComposeField(textToInject)
+        }
+        
         Log.d("ConversationFragment", "Breeze AI Manager initialized successfully: ${breezeManager != null}")
       } else {
         Log.w("ConversationFragment", "Overlay permissions not granted for Breeze AI")
@@ -4446,6 +4452,59 @@ class ConversationFragment :
   }
 
   //endregion Compose + Send Callbacks
+
+  //region Breeze AI Text Injection
+
+  /**
+   * Inject AI-generated text into the compose field with visual feedback.
+   * Called by BreezeManager when user accepts a suggestion via slide-down gesture.
+   */
+  private fun injectTextIntoComposeField(textToInject: String) {
+    try {
+      // IMMEDIATE text injection - no runOnUiThread wrapper since callback is already on main thread
+      
+      // Replace the current text with the AI suggestion FIRST (fastest operation)
+      composeText.text?.clear()
+      composeText.text?.insert(0, textToInject)
+      composeText.setSelection(textToInject.length)
+      
+      // ASYNC operations after text injection for better responsiveness
+      composeText.post {
+        // Show visual feedback AFTER text is injected
+        addVisualFeedbackForTextInjection()
+        
+        // Keyboard operations happen asynchronously
+        container.showSoftkey(composeText)
+        composeText.requestFocus()
+      }
+      
+    } catch (e: Exception) {
+      Log.e("ConversationFragment", "Error in text injection", e)
+    }
+  }
+  
+  /**
+   * Add visual feedback (orange glow) to input field during text injection per spec.
+   */
+  private fun addVisualFeedbackForTextInjection() {
+    try {
+      // Fast orange glow effect per spec (Line 162: "Input field glows orange")  
+      val originalBackground = composeText.background
+      
+      // Apply orange tint immediately
+      composeText.setBackgroundColor(0x28FF8C00) // Pre-computed ARGB color
+      
+      // Remove glow after 200ms (reduced from 300ms for snappier feel)
+      composeText.postDelayed({
+        composeText.background = originalBackground
+      }, 200)
+      
+    } catch (e: Exception) {
+      Log.e("ConversationFragment", "Error adding visual feedback", e)
+    }
+  }
+
+  //endregion Breeze AI Text Injection
 
   //region Input Panel Callbacks
 
