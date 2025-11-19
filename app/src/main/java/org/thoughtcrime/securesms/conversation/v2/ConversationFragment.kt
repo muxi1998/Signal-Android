@@ -128,6 +128,8 @@ import org.thoughtcrime.securesms.badges.gifts.OpenableGiftItemDecoration
 import org.thoughtcrime.securesms.badges.gifts.viewgift.received.ViewReceivedGiftBottomSheet
 import org.thoughtcrime.securesms.badges.gifts.viewgift.sent.ViewSentGiftBottomSheet
 import org.thoughtcrime.securesms.billing.upgrade.UpgradeToStartMediaBackupSheet
+import com.mtkresearch.securesms.breeze.BreezeManager
+import com.mtkresearch.securesms.breeze.PermissionManager
 import org.thoughtcrime.securesms.calls.YouAreAlreadyInACallSnackbar
 import org.thoughtcrime.securesms.components.AnimatingToggle
 import org.thoughtcrime.securesms.components.ComposeText
@@ -566,6 +568,7 @@ class ConversationFragment :
   private var menuProvider: ConversationOptionsMenu.Provider? = null
   private var scrollListener: ScrollListener? = null
   private var progressDialog: ProgressCardDialogFragment? = null
+  private var breezeManager: BreezeManager? = null
 
   private val jumpAndPulseScrollStrategy = object : ScrollToPositionDelegate.ScrollStrategy {
     override fun performScroll(recyclerView: RecyclerView, layoutManager: LinearLayoutManager, position: Int, smooth: Boolean) {
@@ -775,6 +778,10 @@ class ConversationFragment :
     if (pinnedShortcutReceiver != null) {
       requireActivity().unregisterReceiver(pinnedShortcutReceiver)
     }
+
+    // Cleanup Breeze AI Assistant
+    breezeManager?.cleanup()
+    breezeManager = null
   }
 
   @Suppress("OVERRIDE_DEPRECATION")
@@ -1107,7 +1114,12 @@ class ConversationFragment :
       setOnClickListener(composeTextEventsListener)
       onFocusChangeListener = composeTextEventsListener
       filters += ByteLimitInputFilter(MessageUtil.MAX_TOTAL_BODY_SIZE_BYTES)
+
+      Log.d("ConversationFragment", "ComposeText setup complete - focus listener attached: ${onFocusChangeListener != null}")
     }
+
+    // Initialize Breeze AI Floating Assistant
+    initializeBreezeAI()
 
     sendButton.apply {
       setPopupContainer(binding.root)
@@ -1337,6 +1349,32 @@ class ConversationFragment :
           isReplacedByIncomingMessage = it.isReplacedByIncomingMessage
         )
       )
+    }
+  }
+
+  private fun initializeBreezeAI() {
+    try {
+      // Check feature flag first
+      if (!com.mtkresearch.securesms.breeze.BreezeConfig.FEATURE_ENABLED) {
+        Log.d("ConversationFragment", "Breeze AI feature is disabled via config")
+        return
+      }
+
+      val permissionManager = PermissionManager(requireContext())
+
+      Log.d("ConversationFragment", "Checking Breeze AI permissions...")
+
+      // Check if we have overlay permissions
+      if (permissionManager.hasRequiredPermissions()) {
+        Log.d("ConversationFragment", "Permissions granted, initializing BreezeManager...")
+        // Initialize the simplified Breeze manager
+        breezeManager = BreezeManager.getInstance(requireContext())
+        Log.d("ConversationFragment", "Breeze AI Manager initialized successfully: ${breezeManager != null}")
+      } else {
+        Log.w("ConversationFragment", "Overlay permissions not granted for Breeze AI")
+      }
+    } catch (e: Exception) {
+      Log.e("ConversationFragment", "Failed to initialize Breeze AI", e)
     }
   }
 
@@ -4262,7 +4300,14 @@ class ConversationFragment :
     }
 
     override fun onClick(v: View) {
+      Log.d("ConversationFragment", ">>>>>> onClick called on: $v")
       container.showSoftkey(composeText)
+
+      // TEMPORARY: Test sparkle manually on any click
+      if (v == composeText) {
+        Log.d("ConversationFragment", ">>>>>> ComposeText clicked - testing sparkle manually")
+        handleAIAssistantOnFocusChange(v, true)
+      }
     }
 
     override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {
@@ -4286,8 +4331,18 @@ class ConversationFragment :
     }
 
     override fun onFocusChange(v: View, hasFocus: Boolean) {
+      Log.d("ConversationFragment", ">>>>>> onFocusChange called: hasFocus=$hasFocus, view=$v")
+
       if (hasFocus) { // && container.getCurrentInput() == emojiDrawerStub.get()) {
         container.showSoftkey(composeText)
+
+        // Show AI sparkle icon when text field gets focus
+        Log.d("ConversationFragment", ">>>>>> Focus gained, calling handleAIAssistantOnFocusChange")
+        handleAIAssistantOnFocusChange(v, hasFocus)
+      } else {
+        // Hide AI elements when focus is lost
+        Log.d("ConversationFragment", ">>>>>> Focus lost, calling handleAIAssistantOnFocusChange")
+        handleAIAssistantOnFocusChange(v, hasFocus)
       }
     }
 
@@ -4298,6 +4353,9 @@ class ConversationFragment :
     override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
       handleSaveDraftOnTextChange(composeText.textTrimmed)
       handleTypingIndicatorOnTextChange(s.toString())
+
+      // Trigger AI assistant when user is actively typing
+      handleAIAssistantOnTextChange(s.toString(), start, before, count)
     }
 
     private fun handleSaveDraftOnTextChange(text: CharSequence) {
@@ -4327,6 +4385,59 @@ class ConversationFragment :
       }
 
       previousText = text
+    }
+
+    private fun handleAIAssistantOnFocusChange(view: View, hasFocus: Boolean) {
+      Log.d("ConversationFragment", "====================================")
+      Log.d("ConversationFragment", "handleAIAssistantOnFocusChange called:")
+      Log.d("ConversationFragment", "  hasFocus: $hasFocus")
+      Log.d("ConversationFragment", "  breezeManager: ${breezeManager != null}")
+      Log.d("ConversationFragment", "  view: $view")
+      Log.d("ConversationFragment", "====================================")
+
+      // Initialize BreezeManager if not already done and needed
+      if (breezeManager == null && hasFocus) {
+        Log.d("ConversationFragment", "BreezeManager is null, attempting to initialize...")
+        initializeBreezeAI()
+      }
+
+      breezeManager?.let { manager ->
+        try {
+          if (hasFocus) {
+            Log.d("ConversationFragment", "AI Assistant: Text field focused")
+
+            // Get input field bounds
+            val bounds = Rect()
+            view.getGlobalVisibleRect(bounds)
+
+            Log.d("ConversationFragment", "Input field bounds: $bounds")
+
+            // Show spark icon with current text
+            val currentText = composeText.textTrimmed.toString()
+            Log.d("ConversationFragment", "Current text: '$currentText'")
+
+            Log.d("ConversationFragment", "Calling manager.showSparkIcon...")
+            manager.showSparkIcon(bounds, currentText)
+            Log.d("ConversationFragment", "manager.showSparkIcon call completed")
+          } else {
+            Log.d("ConversationFragment", "AI Assistant: Text field focus lost")
+            manager.hideAll()
+          }
+        } catch (e: Exception) {
+          Log.e("ConversationFragment", "AI Assistant focus handling error", e)
+        }
+      } ?: run {
+        if (hasFocus) {
+          Log.w("ConversationFragment", "BreezeManager is still null after initialization attempt - check permissions and feature flags")
+        } else {
+          Log.d("ConversationFragment", "BreezeManager is null, but focus lost - no action needed")
+        }
+      }
+    }
+
+    private fun handleAIAssistantOnTextChange(text: String, start: Int, before: Int, count: Int) {
+      // Per enhanced spec: AI activation is on-demand via spark icon tap only
+      // No automatic triggers on text change - keeps the experience unobtrusive
     }
 
     override fun onStylingChanged() {
