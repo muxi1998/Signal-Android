@@ -130,6 +130,7 @@ import org.thoughtcrime.securesms.badges.gifts.viewgift.sent.ViewSentGiftBottomS
 import org.thoughtcrime.securesms.billing.upgrade.UpgradeToStartMediaBackupSheet
 import com.mtkresearch.securesms.breeze.BreezeManager
 import com.mtkresearch.securesms.breeze.PermissionManager
+import com.mtkresearch.securesms.breeze.rainbow.RainbowAnimationHelper
 import org.thoughtcrime.securesms.calls.YouAreAlreadyInACallSnackbar
 import org.thoughtcrime.securesms.components.AnimatingToggle
 import org.thoughtcrime.securesms.components.ComposeText
@@ -585,6 +586,9 @@ class ConversationFragment :
   private val inputPanel: InputPanel
     get() = binding.conversationInputPanel.root
 
+  private val composeBubble: View
+    get() = binding.conversationInputPanel.composeBubble
+
   private val composeText: ComposeText
     get() = binding.conversationInputPanel.embeddedTextEditor
 
@@ -782,6 +786,9 @@ class ConversationFragment :
     // Cleanup Breeze AI Assistant
     breezeManager?.cleanup()
     breezeManager = null
+    
+    // Cleanup rainbow animation
+    stopRainbowAnimation()
   }
 
   @Suppress("OVERRIDE_DEPRECATION")
@@ -1373,6 +1380,11 @@ class ConversationFragment :
         // Register text injection callback
         breezeManager!!.setTextInjectionCallback { textToInject ->
           this@ConversationFragment.injectTextIntoComposeField(textToInject)
+        }
+        
+        // Register rainbow animation callback for AI text injection
+        breezeManager!!.setRainbowAnimationCallback {
+          this@ConversationFragment.triggerRainbowAnimationAfterAIInjection()
         }
         
         Log.d("ConversationFragment", "Breeze AI Manager initialized successfully: ${breezeManager != null}")
@@ -2112,6 +2124,8 @@ class ConversationFragment :
     isViewOnce: Boolean = false,
     afterSendComplete: () -> Unit = {}
   ) {
+    // Stop rainbow animation when message is being sent
+    stopRainbowAnimation()
     val threadRecipient = viewModel.recipientSnapshot
 
     if (threadRecipient == null) {
@@ -4362,6 +4376,11 @@ class ConversationFragment :
 
       // Trigger AI assistant when user is actively typing
       handleAIAssistantOnTextChange(s.toString(), start, before, count)
+      
+      // Stop rainbow animation if text is cleared (becomes empty)
+      if (s.isEmpty()) {
+        stopRainbowAnimation()
+      }
     }
 
     private fun handleSaveDraftOnTextChange(text: CharSequence) {
@@ -4504,6 +4523,51 @@ class ConversationFragment :
       
     } catch (e: Exception) {
       Log.e("ConversationFragment", "Error adding visual feedback", e)
+    }
+  }
+  
+  // Rainbow animation instance for managing persistent animation
+  private var currentRainbowHelper: RainbowAnimationHelper? = null
+  
+  /**
+   * Trigger rainbow animation after AI text injection.
+   * This method is called only when AI suggestions are accepted and injected - not for manual typing.
+   * Animation covers the entire input panel and persists until message is sent or text is cleared.
+   */
+  private fun triggerRainbowAnimationAfterAIInjection() {
+    try {
+      Log.d("ConversationFragment", "Triggering persistent rainbow animation for AI text injection")
+      
+      // Stop any existing rainbow animation
+      stopRainbowAnimation()
+      
+      // Only animate if the text field is not empty (has AI-injected content)
+      if (composeText.text?.isNotEmpty() == true) {
+        // Apply rainbow to the compose bubble (main compose area without extra UI elements)
+        currentRainbowHelper = RainbowAnimationHelper.applyRainbowAfterAIInjection(composeBubble, this)
+        
+        Log.d("ConversationFragment", "Persistent rainbow animation started for compose bubble")
+      } else {
+        Log.d("ConversationFragment", "Skipping rainbow animation - text field is empty")
+      }
+      
+    } catch (e: Exception) {
+      Log.e("ConversationFragment", "Error triggering rainbow animation after AI injection", e)
+    }
+  }
+  
+  /**
+   * Stop rainbow animation when message is sent or text is cleared
+   */
+  private fun stopRainbowAnimation() {
+    try {
+      currentRainbowHelper?.let { helper ->
+        Log.d("ConversationFragment", "Stopping rainbow animation")
+        helper.cleanup()
+        currentRainbowHelper = null
+      }
+    } catch (e: Exception) {
+      Log.e("ConversationFragment", "Error stopping rainbow animation", e)
     }
   }
 

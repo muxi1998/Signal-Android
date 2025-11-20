@@ -51,6 +51,9 @@ class BreezeManager private constructor(
   // Text injection callback - set by ConversationFragment
   private var textInjectionCallback: ((String) -> Unit)? = null
   
+  // Rainbow animation callback - set by ConversationFragment to trigger rainbow after AI injection
+  private var rainbowAnimationCallback: (() -> Unit)? = null
+  
   // App backgrounding detection per spec (Line 218)
   private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
@@ -134,11 +137,28 @@ class BreezeManager private constructor(
   }
   
   /**
+   * Set rainbow animation callback for triggering rainbow animation after AI text injection.
+   * This allows BreezeManager to trigger rainbow animation on the EditText after injection.
+   */
+  fun setRainbowAnimationCallback(callback: () -> Unit) {
+    rainbowAnimationCallback = callback
+    Log.d(TAG, "Rainbow animation callback registered")
+  }
+  
+  /**
    * Clear text injection callback when ConversationFragment is destroyed.
    */
   fun clearTextInjectionCallback() {
     textInjectionCallback = null
     Log.d(TAG, "Text injection callback cleared")
+  }
+  
+  /**
+   * Clear rainbow animation callback when ConversationFragment is destroyed.
+   */
+  fun clearRainbowAnimationCallback() {
+    rainbowAnimationCallback = null
+    Log.d(TAG, "Rainbow animation callback cleared")
   }
 
   /**
@@ -207,6 +227,12 @@ class BreezeManager private constructor(
           Log.d(TAG, "Injecting text via callback...")
           callback(textToInject)
           
+          // IMPORTANT: Trigger rainbow animation ONLY after AI text injection
+          rainbowAnimationCallback?.let { rainbowCallback ->
+            Log.d(TAG, "Triggering rainbow animation after AI text injection")
+            rainbowCallback()
+          }
+          
           // Move current suggestion to previous summary
           previousSummary = session.currentSuggestion
         } ?: run {
@@ -252,8 +278,9 @@ class BreezeManager private constructor(
       hideAll()
     }
     
-    // Clear text injection callback
+    // Clear callbacks
     clearTextInjectionCallback()
+    clearRainbowAnimationCallback()
     
     // Unregister lifecycle callbacks
     if (context is Application) {
