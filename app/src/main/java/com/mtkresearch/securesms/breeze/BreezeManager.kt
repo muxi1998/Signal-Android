@@ -50,7 +50,10 @@ class BreezeManager private constructor(
   
   // Text injection callback - set by ConversationFragment
   private var textInjectionCallback: ((String) -> Unit)? = null
-  
+
+  // Text retrieval callback - set by ConversationFragment to get current input text
+  private var textRetrievalCallback: (() -> String)? = null
+
   // Rainbow animation callback - set by ConversationFragment to trigger rainbow after AI injection
   private var rainbowAnimationCallback: (() -> Unit)? = null
   
@@ -135,6 +138,15 @@ class BreezeManager private constructor(
     textInjectionCallback = callback
     Log.d(TAG, "Text injection callback registered")
   }
+
+  /**
+   * Set text retrieval callback for getting current input text from ConversationFragment.
+   * This allows BreezeManager to get the latest text when user clicks on tone options.
+   */
+  fun setTextRetrievalCallback(callback: () -> String) {
+    textRetrievalCallback = callback
+    Log.d(TAG, "Text retrieval callback registered")
+  }
   
   /**
    * Set rainbow animation callback for triggering rainbow animation after AI text injection.
@@ -151,6 +163,14 @@ class BreezeManager private constructor(
   fun clearTextInjectionCallback() {
     textInjectionCallback = null
     Log.d(TAG, "Text injection callback cleared")
+  }
+
+  /**
+   * Clear text retrieval callback when ConversationFragment is destroyed.
+   */
+  fun clearTextRetrievalCallback() {
+    textRetrievalCallback = null
+    Log.d(TAG, "Text retrieval callback cleared")
   }
   
   /**
@@ -259,8 +279,12 @@ class BreezeManager private constructor(
         // Move current to previous
         previousSummary = session.currentSuggestion
 
-        // Generate new suggestion with tone, using original input text for History JSON
-        session.applyTone(toneType, originalInputText)
+        // Get fresh input text from callback, fallback to original if not available
+        val currentInputText = textRetrievalCallback?.invoke() ?: originalInputText
+        Log.d(TAG, "Tone chip tapped: $toneType, using text: '$currentInputText'")
+
+        // Generate new suggestion with tone, using current input text
+        session.applyTone(toneType, currentInputText)
 
         // Update window
         floatingWindow?.updateSession(session)
@@ -277,11 +301,12 @@ class BreezeManager private constructor(
     scope.launch {
       hideAll()
     }
-    
+
     // Clear callbacks
     clearTextInjectionCallback()
+    clearTextRetrievalCallback()
     clearRainbowAnimationCallback()
-    
+
     // Unregister lifecycle callbacks
     if (context is Application) {
       context.unregisterActivityLifecycleCallbacks(activityLifecycleCallbacks)

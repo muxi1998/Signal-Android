@@ -3,7 +3,6 @@ package com.mtkresearch.securesms.edgeai.usecases
 import org.signal.core.util.logging.Log
 import com.mtkresearch.securesms.edgeai.utils.HistoryExtractor
 import com.mtkresearch.securesms.edgeai.models.TransformedMessage
-import com.mtkresearch.securesms.edgeai.models.HistoryMessage
 
 /**
  * "Make History in JSON" usecase.
@@ -39,13 +38,7 @@ object HistoryInJSON {
       
       // Create JSON transformation
       val transformed = TransformedMessage(
-        dialogHistory = history.messages.map { message ->
-          // Convert HistoryMessage to the expected format
-          object {
-            val sender = message.sender
-            val text = message.text
-          }
-        },
+        dialogHistory = history.messages,
         text = request.inputText
       )
       

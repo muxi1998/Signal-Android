@@ -1381,7 +1381,12 @@ class ConversationFragment :
         breezeManager!!.setTextInjectionCallback { textToInject ->
           this@ConversationFragment.injectTextIntoComposeField(textToInject)
         }
-        
+
+        // Register text retrieval callback to get current input text
+        breezeManager!!.setTextRetrievalCallback {
+          composeText.textTrimmed.toString()
+        }
+
         // Register rainbow animation callback for AI text injection
         breezeManager!!.setRainbowAnimationCallback {
           this@ConversationFragment.triggerRainbowAnimationAfterAIInjection()
