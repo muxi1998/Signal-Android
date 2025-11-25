@@ -1470,13 +1470,18 @@
     <!-- AddMembersActivity -->
     <string name="AddMembersActivity__done">סיים</string>
     <string name="AddMembersActivity__this_person_cant_be_added_to_legacy_groups">איש זה אינו יכול להתווסף אל קבוצות מיושנות.</string>
-    <!-- Confirmation text when adding a member to a group. If one person is added, %1$s is their name. If multiple people are added, the total number is %3$d. %2$s is the name of the group -->
+
+    <!-- Confirmation text when adding one member to a group. %1$s is the member\'s name, %2$s is the group name. -->
+    <string name="AddMembersActivity__add_member_to_s">להוסיף את \"%1$s\" אל \"%2$s\"?</string>
+
+    <!-- Confirmation text when adding members to a group. %1$d is the number of members added. %2$s is the name of the group. -->
     <plurals name="AddMembersActivity__add_d_members_to_s">
-        <item quantity="one">להוסיף את ״%1$s״ אל \"%2$s\"?</item>
-        <item quantity="two">להוסיף %3$d חברים אל \"%2$s\"?</item>
-        <item quantity="many">להוסיף %3$d חברים אל \"%2$s\"?</item>
-        <item quantity="other">להוסיף %3$d חברים אל \"%2$s\"?</item>
+        <item quantity="one">להוסיף את ״{2}״ אל \"%2$s\"?</item>
+        <item quantity="two">להוסיף %1$d חברים אל \"%2$s\"?</item>
+        <item quantity="many">להוסיף %1$d חברים אל \"%2$s\"?</item>
+        <item quantity="other">להוסיף %1$d חברים אל \"%2$s\"?</item>
     </plurals>
+
     <string name="AddMembersActivity__add">הוסף</string>
     <string name="AddMembersActivity__add_members">הוסף חברי קבוצה</string>
 
@@ -2245,7 +2250,7 @@
     <!-- Update message shown when someone ends the poll. %1$s is the person who ended the poll and %2$s is the poll question. -->
     <string name="MessageRecord_ended_the_poll">%1$s סיימ/ה את הסקר: ״%2$s״</string>
     <!-- Update message shown when you end the poll. %1$s is the poll question. -->
-    <string name="MessageRecord_you_ended_the_poll">You ended the poll: \"%1$s\"</string>
+    <string name="MessageRecord_you_ended_the_poll">סיימת את הסקר: ״%1$s״</string>
 
     <!-- MessageRequestBottomView -->
     <string name="MessageRequestBottomView_accept">אשר</string>
@@ -2587,6 +2592,12 @@
     <string name="WebRtcCallActivity__to_start_call">כדי להתחיל או להצטרף לשיחה:</string>
     <!-- Dialog description that will explain the steps needed to give camera permissions -->
     <string name="WebRtcCallActivity__to_enable_video">כדי להפעיל וידאו:</string>
+
+    <!-- MoveableLocalVideoRenderer -->
+    <!-- Content description for button to shrink local video from focused/full-screen mode -->
+    <string name="MoveableLocalVideoRenderer__shrink_local_video">כיווץ סרטון מקומי</string>
+    <!-- Content description for button to expand local video to focused/full-screen mode -->
+    <string name="MoveableLocalVideoRenderer__expand_local_video">הרחבת סרטון מקומי</string>
 
     <!-- WebRtcCallView -->
     <string name="WebRtcCallView__signal_call">שיחת Signal</string>
@@ -5456,13 +5467,6 @@
     <!-- CreateGroupActivity -->
     <string name="CreateGroupActivity__skip">דלג</string>
 
-    <plurals name="CreateGroupActivity__d_members">
-        <item quantity="one">חבר קבוצה %1$d</item>
-        <item quantity="two">%1$d חברי קבוצה</item>
-        <item quantity="many">%1$d חברי קבוצה</item>
-        <item quantity="other">%1$d חברי קבוצה</item>
-    </plurals>
-
     <!-- Create group screen title displayed when there is at least one group member selected. The placeholder is the total number of group members. -->
     <plurals name="CreateGroupActivity__s_members">
         <item quantity="one">חבר/ה %1$s</item>
@@ -6210,11 +6214,11 @@
     <!-- Snackbar message when blocking a contact has failed -->
     <string name="NewConversationActivity__block_failed">חסימה נכשלה</string>
     <!-- Error message shown when looking up a person by phone number and that phone number is not associated with a signal account -->
-    <string name="NewConversationActivity__s_is_not_a_signal_user">%1$s לא משתמש/ת ב–Signal</string>
+    <string name="RecipientLookup_error__s_is_not_a_signal_user">%1$s לא משתמש/ת ב–Signal</string>
     <!-- Accessibility label for opening the screen specific dropdown menu. -->
     <string name="NewConversationActivity__accessibility_open_top_bar_menu">פתיחת תפריט</string>
     <!-- Error message shown in a dialog when trying to create a new group with non-signal users (e.g., unregistered or phone number only contacts) -->
-    <plurals name="CreateGroupActivity_not_signal_users">
+    <plurals name="RecipientLookup_error__not_signal_users">
         <item quantity="one">%1$s לא משתמש/ת ב–Signal</item>
         <item quantity="two">%1$s לא משתמשים ב–Signal</item>
         <item quantity="many">%1$s לא משתמשים ב–Signal</item>
@@ -8112,7 +8116,7 @@
     <!-- Title of a megaphone shown at the bottom of the chat list to prompt the user to enable message backups -->
     <string name="TurnOnSignalBackups__title">הפעלת הגיבויים המאובטחים של Signal</string>
     <!-- Title of a megaphone shown at the bottom of the chat list to prompt the user to enable message backups. Special string for the beta period. -->
-    <string name="TurnOnSignalBackups__title_beta">Try Signal Secure Backups</string>
+    <string name="TurnOnSignalBackups__title_beta">כדאי לנסות: גיבויי Signal מאובטחים</string>
     <!-- Body of a megaphone shown at the bottom of the chat list to prompt the user to enable message backups -->
     <string name="TurnOnSignalBackups__body">ככה, לא מאבדים אף הודעה כשמחליפים טלפון או מתקינים מחדש את Signal.</string>
     <!-- Button of a megaphone shown at the bottom of the chat list to prompt the user to enable message backups that will take the user to the flow to enable backups -->
@@ -8399,12 +8403,12 @@
     <string name="BackupStatusRow__your_last_backup">לא ניתן היה להשלים את הגיבוי האחרון שלך. חשוב לוודא שהטלפון שלך מחובר ל–Wi–Fi וללחוץ ״לגבות כעת״ כדי לנסות שוב.</string>
     <!-- Text displayed when a backup could not be completed and to check that they are on the latest version of Signal -->
     <string name="BackupStatusRow__your_last_backup_latest_version">לא ניתן היה להשלים את הגיבוי האחרון שלך. כדאי לוודא שיש לך את הגרסה האחרונה של Signal ולנסות שוב.</string>
-    <!-- Text displayed when a backup file exceeds the storage limit -->
-    <string name="BackupStatusRow__backup_file_too_large">The number of messages you have exceeds the storage limit. Delete some messages and try again.</string>
+    <!-- Text displayed when a backup file exceeds the storage limit during upload. -->
+    <string name="BackupStatusRow__backup_file_too_large">מספר ההודעות שיש לך חורג ממגבלת האחסון. יש למחוק כמה הודעות ולנסות שוב.</string>
     <!-- Text displayed when we\'re not backing up all messages. The placeholder represents the cutoff date for the messages we\'re backing up. -->
-    <string name="BackupStatusRow__not_backing_up_old_messages">Messages sent or received before %1$s are not being backed up.</string>
+    <string name="BackupStatusRow__not_backing_up_old_messages">הודעות שנשלחו או התקבלו לפני %1$s אינן מגובות.</string>
     <!-- Text displayed when we failed to create a backup because of low disk space. -->
-    <string name="BackupStatusRow__not_enough_disk_space">Your backup couldn\'t be completed because you are low on disk space. Free up space on your device and try again.</string>
+    <string name="BackupStatusRow__not_enough_disk_space">לא ניתן להשלים את הגיבוי שלך מכיוון שאין לך מספיק שטח אחסון פנוי. יש לפנות מקום במכשיר שלך ולנסות שוב.</string>
     <!-- Text displayed in a row to learn more about why a backup failed -->
     <string name="BackupStatusRow__learn_more">למידע נוסף</string>
 
@@ -9212,7 +9216,7 @@
 
     <!-- Polls -->
     <!-- Caption in poll message to select an option  -->
-    <string name="Poll__select_one">Poll · Select one</string>
+    <string name="Poll__select_one">סקר · יש לבחור 1</string>
     <!-- Caption in poll message to select one or more options  -->
     <string name="Poll__select_multiple">סקר · יש לבחור 1 או יותר</string>
     <!-- Caption in poll message once a poll has ended  -->
@@ -9232,7 +9236,7 @@
     <!-- Notification message sent when a poll ends. %1$s is the creator. %2$s is the question of the poll -->
     <string name="Poll__poll_end">%1$s סיימ/ה את הסקר: ״%2$s״</string>
     <!-- Thread body message when a poll ends. %1$s is the question of the poll -->
-    <string name="Poll__you_poll_end">You ended the poll: \"%1$s\"</string>
+    <string name="Poll__you_poll_end">סיימת את הסקר: ״%1$s״</string>
     <!-- Notification message sent when someone votes in the poll. %1$s is the voter. %2$s is the question of the poll -->
     <string name="Poll__poll_voted">%1$s הצביע/ה בסקר: ״%2$s״</string>
     <!-- Option in settings to configure notifications for polls -->

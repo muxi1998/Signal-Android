@@ -1394,11 +1394,16 @@
     <!-- AddMembersActivity -->
     <string name="AddMembersActivity__done">Ferdig</string>
     <string name="AddMembersActivity__this_person_cant_be_added_to_legacy_groups">Denne personen kan ikke legges til \"legacy\"-grupper.</string>
-    <!-- Confirmation text when adding a member to a group. If one person is added, %1$s is their name. If multiple people are added, the total number is %3$d. %2$s is the name of the group -->
+
+    <!-- Confirmation text when adding one member to a group. %1$s is the member\'s name, %2$s is the group name. -->
+    <string name="AddMembersActivity__add_member_to_s">Legge \"%1$s\" til \"%2$s\"?</string>
+
+    <!-- Confirmation text when adding members to a group. %1$d is the number of members added. %2$s is the name of the group. -->
     <plurals name="AddMembersActivity__add_d_members_to_s">
-        <item quantity="one">Vil du legge %1$s til i %2$s?</item>
-        <item quantity="other">Vil du legge %3$d medlemmer til i %2$s?</item>
+        <item quantity="one">Vil du legge {2} til i %2$s?</item>
+        <item quantity="other">Vil du legge %1$d medlemmer til i %2$s?</item>
     </plurals>
+
     <string name="AddMembersActivity__add">Legg til</string>
     <string name="AddMembersActivity__add_members">Legg til medlemmer</string>
 
@@ -2125,7 +2130,7 @@
     <!-- Update message shown when someone ends the poll. %1$s is the person who ended the poll and %2$s is the poll question. -->
     <string name="MessageRecord_ended_the_poll">%1$s avsluttet avstemningen «%2$s»</string>
     <!-- Update message shown when you end the poll. %1$s is the poll question. -->
-    <string name="MessageRecord_you_ended_the_poll">You ended the poll: \"%1$s\"</string>
+    <string name="MessageRecord_you_ended_the_poll">Du avsluttet avstemningen: «%1$s»</string>
 
     <!-- MessageRequestBottomView -->
     <string name="MessageRequestBottomView_accept">Godta</string>
@@ -2441,6 +2446,12 @@
     <string name="WebRtcCallActivity__to_start_call">Slik starter eller blir du med i en samtale:</string>
     <!-- Dialog description that will explain the steps needed to give camera permissions -->
     <string name="WebRtcCallActivity__to_enable_video">Slik slår du på video:</string>
+
+    <!-- MoveableLocalVideoRenderer -->
+    <!-- Content description for button to shrink local video from focused/full-screen mode -->
+    <string name="MoveableLocalVideoRenderer__shrink_local_video">Shrink local video</string>
+    <!-- Content description for button to expand local video to focused/full-screen mode -->
+    <string name="MoveableLocalVideoRenderer__expand_local_video">Expand local video</string>
 
     <!-- WebRtcCallView -->
     <string name="WebRtcCallView__signal_call">Signal Anrop</string>
@@ -3431,9 +3442,9 @@
     <string name="ContactSelectionListFragment_s_is_not_a_signal_user">"«%1$s» er ikke en Signal-bruker. Kontroller brukernavnet, og prøv igjen."</string>
     <string name="ContactSelectionListFragment_you_do_not_need_to_add_yourself_to_the_group">Det er ikke nødvendig å legge deg selv til gruppen</string>
     <string name="ContactSelectionListFragment_maximum_group_size_reached">Maksimum antall på gruppestørrelse er oppnådd</string>
-    <string name="ContactSelectionListFragment_signal_groups_can_have_a_maximum_of_s_members">Signal grupper kan ha maksimum %1$smedlemmer.</string>
+    <string name="ContactSelectionListFragment_signal_groups_can_have_a_maximum_of_s_members">Signal-grupper kan ha maksimalt %1$s medlemmer.</string>
     <string name="ContactSelectionListFragment_recommended_member_limit_reached">Anbefalt øvre grense for medlemsantall er nådd</string>
-    <string name="ContactSelectionListFragment_signal_groups_perform_best_with_s_members_or_fewer">Signal-grupper yter best med %1$s eller færre. Å legge til flere medlemmer vil føre til tregere sending og mottak av meldinger.</string>
+    <string name="ContactSelectionListFragment_signal_groups_perform_best_with_s_members_or_fewer">Signal-grupper yter best med %1$s eller færre medlemmer. Å legge til flere medlemmer vil føre til tregere sending og mottak av meldinger.</string>
     <plurals name="ContactSelectionListFragment_d_members">
         <item quantity="one">%1$d medlem</item>
         <item quantity="other">%1$d medlemmer</item>
@@ -5198,11 +5209,6 @@
     <!-- CreateGroupActivity -->
     <string name="CreateGroupActivity__skip">Hopp over</string>
 
-    <plurals name="CreateGroupActivity__d_members">
-        <item quantity="one">%1$d medlem</item>
-        <item quantity="other">%1$d medlemmer</item>
-    </plurals>
-
     <!-- Create group screen title displayed when there is at least one group member selected. The placeholder is the total number of group members. -->
     <plurals name="CreateGroupActivity__s_members">
         <item quantity="one">%1$s medlem</item>
@@ -5932,11 +5938,11 @@
     <!-- Snackbar message when blocking a contact has failed -->
     <string name="NewConversationActivity__block_failed">Blokkeringen mislyktes</string>
     <!-- Error message shown when looking up a person by phone number and that phone number is not associated with a signal account -->
-    <string name="NewConversationActivity__s_is_not_a_signal_user">%1$s bruker ikke Signal</string>
+    <string name="RecipientLookup_error__s_is_not_a_signal_user">%1$s bruker ikke Signal</string>
     <!-- Accessibility label for opening the screen specific dropdown menu. -->
     <string name="NewConversationActivity__accessibility_open_top_bar_menu">Åpne menyen</string>
     <!-- Error message shown in a dialog when trying to create a new group with non-signal users (e.g., unregistered or phone number only contacts) -->
-    <plurals name="CreateGroupActivity_not_signal_users">
+    <plurals name="RecipientLookup_error__not_signal_users">
         <item quantity="one">%1$s bruker ikke Signal</item>
         <item quantity="other">%1$s bruker ikke Signal</item>
     </plurals>
@@ -7768,7 +7774,7 @@
     <!-- Title of a megaphone shown at the bottom of the chat list to prompt the user to enable message backups -->
     <string name="TurnOnSignalBackups__title">Slå på sikkerhetskopiering av Signal</string>
     <!-- Title of a megaphone shown at the bottom of the chat list to prompt the user to enable message backups. Special string for the beta period. -->
-    <string name="TurnOnSignalBackups__title_beta">Try Signal Secure Backups</string>
+    <string name="TurnOnSignalBackups__title_beta">Prøv Sikre sikkerhetskopier</string>
     <!-- Body of a megaphone shown at the bottom of the chat list to prompt the user to enable message backups -->
     <string name="TurnOnSignalBackups__body">Behold alt innholdet ditt når du må bytte mobil eller installere Signal på nytt.</string>
     <!-- Button of a megaphone shown at the bottom of the chat list to prompt the user to enable message backups that will take the user to the flow to enable backups -->
@@ -8049,12 +8055,12 @@
     <string name="BackupStatusRow__your_last_backup">Den siste sikkerhetskopien kunne ikke gjennomføres. Sørg for at enheten er koblet til internett, og trykk på «Sikkerhetskopier nå» for å prøve igjen.</string>
     <!-- Text displayed when a backup could not be completed and to check that they are on the latest version of Signal -->
     <string name="BackupStatusRow__your_last_backup_latest_version">Den siste sikkerhetskopien kunne ikke gjennomføres. Sjekk om du bruker den nyeste versjonen av Signal, og prøv igjen.</string>
-    <!-- Text displayed when a backup file exceeds the storage limit -->
-    <string name="BackupStatusRow__backup_file_too_large">The number of messages you have exceeds the storage limit. Delete some messages and try again.</string>
+    <!-- Text displayed when a backup file exceeds the storage limit during upload. -->
+    <string name="BackupStatusRow__backup_file_too_large">Du har for mange meldinger og ikke nok plass til å sikkerhetskopiere dem. Slett noen av meldingene, og prøv så på nytt.</string>
     <!-- Text displayed when we\'re not backing up all messages. The placeholder represents the cutoff date for the messages we\'re backing up. -->
-    <string name="BackupStatusRow__not_backing_up_old_messages">Messages sent or received before %1$s are not being backed up.</string>
+    <string name="BackupStatusRow__not_backing_up_old_messages">Meldinger du har sendt og mottatt før %1$s, blir ikke sikkerhetskopiert.</string>
     <!-- Text displayed when we failed to create a backup because of low disk space. -->
-    <string name="BackupStatusRow__not_enough_disk_space">Your backup couldn\'t be completed because you are low on disk space. Free up space on your device and try again.</string>
+    <string name="BackupStatusRow__not_enough_disk_space">Your backup couldn\'t be completed because you are low on storage space. Free up space on your device and try again.</string>
     <!-- Text displayed in a row to learn more about why a backup failed -->
     <string name="BackupStatusRow__learn_more">Les mer</string>
 
@@ -8840,7 +8846,7 @@
 
     <!-- Polls -->
     <!-- Caption in poll message to select an option  -->
-    <string name="Poll__select_one">Poll · Select one</string>
+    <string name="Poll__select_one">Avstemning · Velg ett svaralternativ</string>
     <!-- Caption in poll message to select one or more options  -->
     <string name="Poll__select_multiple">Avstemning · Velg minst ett svaralternativ</string>
     <!-- Caption in poll message once a poll has ended  -->
@@ -8860,7 +8866,7 @@
     <!-- Notification message sent when a poll ends. %1$s is the creator. %2$s is the question of the poll -->
     <string name="Poll__poll_end">%1$s avsluttet avstemningen «%2$s»</string>
     <!-- Thread body message when a poll ends. %1$s is the question of the poll -->
-    <string name="Poll__you_poll_end">You ended the poll: \"%1$s\"</string>
+    <string name="Poll__you_poll_end">Du avsluttet avstemningen: «%1$s»</string>
     <!-- Notification message sent when someone votes in the poll. %1$s is the voter. %2$s is the question of the poll -->
     <string name="Poll__poll_voted">%1$s stemte i avstemningen «%2$s»</string>
     <!-- Option in settings to configure notifications for polls -->

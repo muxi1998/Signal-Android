@@ -589,6 +589,10 @@ object BackupRepository {
 
   @JvmStatic
   fun maybeFixAnyDanglingUploadProgress() {
+    if (SignalStore.account.isLinkedDevice) {
+      return
+    }
+
     if (SignalStore.backup.archiveUploadState?.backupPhase == ArchiveUploadProgressState.BackupPhase.Message && AppDependencies.jobManager.find { it.factoryKey == BackupMessagesJob.KEY }.isEmpty()) {
       SignalStore.backup.archiveUploadState = null
       BackupMessagesJob.enqueue()
@@ -2151,9 +2155,13 @@ object BackupRepository {
     try {
       DataRestoreConstraint.isRestoringData = true
       return withContext(Dispatchers.IO) {
-        return@withContext BackupProgressService.start(context, context.getString(R.string.BackupProgressService_title)).use {
+        val result = BackupProgressService.start(context, context.getString(R.string.BackupProgressService_title)).use {
           restoreRemoteBackup(controller = it, cancellationSignal = { !isActive })
         }
+        if (result !is RemoteRestoreResult.Success) {
+          ArchiveRestoreProgress.onRestoreFailed()
+        }
+        return@withContext result
       }
     } finally {
       DataRestoreConstraint.isRestoringData = false
