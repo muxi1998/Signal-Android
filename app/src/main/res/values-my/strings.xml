@@ -1356,10 +1356,15 @@
     <!-- AddMembersActivity -->
     <string name="AddMembersActivity__done">ပြီးပြီ</string>
     <string name="AddMembersActivity__this_person_cant_be_added_to_legacy_groups">ဤပုဂ္ဂိုလ်အားအမွေအုပ်စုများထဲသို့ထည့်မရပါ။</string>
-    <!-- Confirmation text when adding a member to a group. If one person is added, %1$s is their name. If multiple people are added, the total number is %3$d. %2$s is the name of the group -->
+
+    <!-- Confirmation text when adding one member to a group. %1$s is the member\'s name, %2$s is the group name. -->
+    <string name="AddMembersActivity__add_member_to_s">\"%1$s\" ကို \"%2$s\" သို့ ထည့်မလား။</string>
+
+    <!-- Confirmation text when adding members to a group. %1$d is the number of members added. %2$s is the name of the group. -->
     <plurals name="AddMembersActivity__add_d_members_to_s">
-        <item quantity="other">\"%2$s\" ထဲသို့ အဖွဲ့ဝင် %3$d ဦးကို ပေါင်းထည့်မည်လား။</item>
+        <item quantity="other">\"%2$s\" ထဲသို့ အဖွဲ့ဝင် %1$d ဦးကို ပေါင်းထည့်မည်လား။</item>
     </plurals>
+
     <string name="AddMembersActivity__add">ပေါင်းထည့်မယ်</string>
     <string name="AddMembersActivity__add_members">အဖွဲ့ဝင်များ ထည့်ပါ</string>
 
@@ -2065,7 +2070,7 @@
     <!-- Update message shown when someone ends the poll. %1$s is the person who ended the poll and %2$s is the poll question. -->
     <string name="MessageRecord_ended_the_poll">%1$sသည် \"%2$s\" စစ်တမ်းကို အဆုံးသတ်ခဲ့သည်</string>
     <!-- Update message shown when you end the poll. %1$s is the poll question. -->
-    <string name="MessageRecord_you_ended_the_poll">You ended the poll: \"%1$s\"</string>
+    <string name="MessageRecord_you_ended_the_poll">သင်သည် \"%1$s\"စစ်တမ်းကို အဆုံးသတ်လိုက်သည်-</string>
 
     <!-- MessageRequestBottomView -->
     <string name="MessageRequestBottomView_accept">လက်ခံသည်</string>
@@ -2368,6 +2373,12 @@
     <string name="WebRtcCallActivity__to_start_call">ခေါ်ဆိုမှုတစ်ခု စတင်ရန် သို့မဟုတ် ပါဝင်ရန်-</string>
     <!-- Dialog description that will explain the steps needed to give camera permissions -->
     <string name="WebRtcCallActivity__to_enable_video">သင့်ဗီဒီယိုကို ဖွင့်ရန်-</string>
+
+    <!-- MoveableLocalVideoRenderer -->
+    <!-- Content description for button to shrink local video from focused/full-screen mode -->
+    <string name="MoveableLocalVideoRenderer__shrink_local_video">စက်တွင်း ဗီဒီယိုကို ချုံ့ပါ</string>
+    <!-- Content description for button to expand local video to focused/full-screen mode -->
+    <string name="MoveableLocalVideoRenderer__expand_local_video">စက်တွင်း ဗီဒီယိုကို ချဲ့ပါ</string>
 
     <!-- WebRtcCallView -->
     <string name="WebRtcCallView__signal_call">Signal ခေါ်ဆိုမှု</string>
@@ -3332,7 +3343,7 @@
     <string name="ContactSelectionListFragment_maximum_group_size_reached">အများဆုံးဆံ့နိုင်သော အဖွဲ့ဝင် အရေအတွက် ပြည့်ပါပြီ</string>
     <string name="ContactSelectionListFragment_signal_groups_can_have_a_maximum_of_s_members">Signal အဖွဲ့များထဲတွင် အဖွဲ့ဝင် အများဆုံး %1$s ဦးဆံ့ပါသည်။</string>
     <string name="ContactSelectionListFragment_recommended_member_limit_reached">အကြံပြုထားသော အဖွဲ့ဝင် အရေအတွက် အကန့်သတ် ပြည့်ပါပြီ</string>
-    <string name="ContactSelectionListFragment_signal_groups_perform_best_with_s_members_or_fewer">Signal အဖွဲ့များသည် အဖွဲ့ဝင် %1$s ဦးထက် နည်းလျှင် အကောင်းဆုံး လုပ်ဆောင်နိုင်ပါသည်။​ ဒီထက်ပို၍ အဖွဲ့ဝင်များပေါင်းမိခဲ့လျှင် မက်ဆေ့ချ်များ ပေးပို့လက်ခံရာတွင် နှောင့်နှေးစေပါသည်။</string>
+    <string name="ContactSelectionListFragment_signal_groups_perform_best_with_s_members_or_fewer">Signal အဖွဲ့များသည် အဖွဲ့ဝင် %1$s ဦးနှင့် အောက်ဆိုလျှင် အကောင်းဆုံး လုပ်ဆောင်နိုင်ပါသည်။ ယင်းထက်ပို၍ အဖွဲ့ဝင်များ ထပ်ပေါင်းလျှင် မက်ဆေ့ချ်များ ပေးပို့လက်ခံရာတွင် နှောင့်နှေးစေနိုင်ပါသည်။</string>
     <plurals name="ContactSelectionListFragment_d_members">
         <item quantity="other">%1$dအဖွဲ့ဝင်များ</item>
     </plurals>
@@ -5069,10 +5080,6 @@
     <!-- CreateGroupActivity -->
     <string name="CreateGroupActivity__skip">ကျော်မည်</string>
 
-    <plurals name="CreateGroupActivity__d_members">
-        <item quantity="other">မန်ဘာ %1$d ဦး</item>
-    </plurals>
-
     <!-- Create group screen title displayed when there is at least one group member selected. The placeholder is the total number of group members. -->
     <plurals name="CreateGroupActivity__s_members">
         <item quantity="other">အဖွဲ့ဝင် %1$s ဦး</item>
@@ -5793,11 +5800,11 @@
     <!-- Snackbar message when blocking a contact has failed -->
     <string name="NewConversationActivity__block_failed">ဘလော့ခ်ခြင်း မအောင်မြင်ပါ</string>
     <!-- Error message shown when looking up a person by phone number and that phone number is not associated with a signal account -->
-    <string name="NewConversationActivity__s_is_not_a_signal_user">%1$s သည် Signal သုံးစွဲသူ မဟုတ်ပါ</string>
+    <string name="RecipientLookup_error__s_is_not_a_signal_user">%1$s သည် Signal သုံးစွဲသူ မဟုတ်ပါ</string>
     <!-- Accessibility label for opening the screen specific dropdown menu. -->
     <string name="NewConversationActivity__accessibility_open_top_bar_menu">မီနူးကို ဖွင့်ရန်</string>
     <!-- Error message shown in a dialog when trying to create a new group with non-signal users (e.g., unregistered or phone number only contacts) -->
-    <plurals name="CreateGroupActivity_not_signal_users">
+    <plurals name="RecipientLookup_error__not_signal_users">
         <item quantity="other">%1$s သည် Signal သုံးစွဲသူများ မဟုတ်ပါ</item>
     </plurals>
 
@@ -7596,7 +7603,7 @@
     <!-- Title of a megaphone shown at the bottom of the chat list to prompt the user to enable message backups -->
     <string name="TurnOnSignalBackups__title">Signal လုံခြုံရေးဘက်ခ်အပ်ကို ဖွင့်ပါ</string>
     <!-- Title of a megaphone shown at the bottom of the chat list to prompt the user to enable message backups. Special string for the beta period. -->
-    <string name="TurnOnSignalBackups__title_beta">Try Signal Secure Backups</string>
+    <string name="TurnOnSignalBackups__title_beta">Signal လုံခြုံရေးဘက်ခ်အပ်ကို စမ်းကြည့်ပါ</string>
     <!-- Body of a megaphone shown at the bottom of the chat list to prompt the user to enable message backups -->
     <string name="TurnOnSignalBackups__body">ဖုန်းအသစ်တစ်ခုရသောအခါ သို့မဟုတ် Signal ကို ပြန်လည်ထည့်သွင်းသည့်အခါ မက်ဆေ့ချ်ဘယ်သောအခါမျှ မဆုံးရှုံးပါ။</string>
     <!-- Button of a megaphone shown at the bottom of the chat list to prompt the user to enable message backups that will take the user to the flow to enable backups -->
@@ -7874,12 +7881,12 @@
     <string name="BackupStatusRow__your_last_backup">သင်၏နောက်ဆုံး ဘက်ခ်အပ်ကို မပြီးမြောက်နိုင်ပါ။ သင့်ဖုန်းကို Wi-Fi နှင့် ချိတ်ဆက်ထားကြောင်းသေချာစေပြီး ထပ်၍စမ်းကြည့်ရန် \"ယခုဘက်ခ်အပ်လုပ်မည်ကို\" နှိပ်ပါ။</string>
     <!-- Text displayed when a backup could not be completed and to check that they are on the latest version of Signal -->
     <string name="BackupStatusRow__your_last_backup_latest_version">သင်၏နောက်ဆုံး ဘက်ခ်အပ်ကို မပြီးမြောက်နိုင်ပါ။ Signal ၏ နောက်ဆုံးဗားရှင်းကို သင်အသုံးပြုနေကြောင်း သေချာစေပြီး ထပ်ကြိုးစားကြည့်ပါ။</string>
-    <!-- Text displayed when a backup file exceeds the storage limit -->
-    <string name="BackupStatusRow__backup_file_too_large">The number of messages you have exceeds the storage limit. Delete some messages and try again.</string>
+    <!-- Text displayed when a backup file exceeds the storage limit during upload. -->
+    <string name="BackupStatusRow__backup_file_too_large">သင့်လက်ရှိ မက်ဆေ့ချ်အရေအတွက်သည် သိုလှောင်မှုကန့်သတ်ချက်ထက် ကျော်လွန်နေပါသည်။ မက်ဆေ့ချ်အချို့ကိုဖျက်ပြီး ထပ်စမ်းကြည့်ပါ။</string>
     <!-- Text displayed when we\'re not backing up all messages. The placeholder represents the cutoff date for the messages we\'re backing up. -->
-    <string name="BackupStatusRow__not_backing_up_old_messages">Messages sent or received before %1$s are not being backed up.</string>
+    <string name="BackupStatusRow__not_backing_up_old_messages">%1$s မတိုင်မီ ပေးပို့ သို့မဟုတ် လက်ခံထားသော မက်ဆေ့ချ်များကို ဘက်ခ်အပ်မလုပ်ထားပါ။</string>
     <!-- Text displayed when we failed to create a backup because of low disk space. -->
-    <string name="BackupStatusRow__not_enough_disk_space">Your backup couldn\'t be completed because you are low on disk space. Free up space on your device and try again.</string>
+    <string name="BackupStatusRow__not_enough_disk_space">သိမ်းဆည်းမှုတွင် နေရာလွတ်နည်းပါးနေသောကြောင့် သင့်ဘက်ခ်အပ်ကို မပြီးမြောက်နိုင်ပါ။ သင့်စက်ပေါ်တွင် နေရာလွတ်ထားပေးပြီး ထပ်စမ်းကြည့်ပါ။</string>
     <!-- Text displayed in a row to learn more about why a backup failed -->
     <string name="BackupStatusRow__learn_more">ပိုမိုလေ့လာရန်</string>
 
@@ -8654,7 +8661,7 @@
 
     <!-- Polls -->
     <!-- Caption in poll message to select an option  -->
-    <string name="Poll__select_one">Poll · Select one</string>
+    <string name="Poll__select_one">စစ်တမ်း · တစ်ခုရွေးချယ်ပါ</string>
     <!-- Caption in poll message to select one or more options  -->
     <string name="Poll__select_multiple">စစ်တမ်း · တစ်ခု သို့မဟုတ် တစ်ခုထက်ပို ရွေးချယ်ပါ</string>
     <!-- Caption in poll message once a poll has ended  -->
@@ -8674,7 +8681,7 @@
     <!-- Notification message sent when a poll ends. %1$s is the creator. %2$s is the question of the poll -->
     <string name="Poll__poll_end">%1$s သည် \"%2$s\" စစ်တမ်းကို အဆုံးသတ်ခဲ့သည်</string>
     <!-- Thread body message when a poll ends. %1$s is the question of the poll -->
-    <string name="Poll__you_poll_end">You ended the poll: \"%1$s\"</string>
+    <string name="Poll__you_poll_end">သင်သည် \"%1$s\"စစ်တမ်းကို အဆုံးသတ်လိုက်သည်-</string>
     <!-- Notification message sent when someone votes in the poll. %1$s is the voter. %2$s is the question of the poll -->
     <string name="Poll__poll_voted">%1$s သည် \"%2$s\" စစ်တမ်းတွင် မဲပေးခဲ့သည်</string>
     <!-- Option in settings to configure notifications for polls -->
