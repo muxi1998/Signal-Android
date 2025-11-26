@@ -569,7 +569,19 @@ class ConversationFragment :
   private var menuProvider: ConversationOptionsMenu.Provider? = null
   private var scrollListener: ScrollListener? = null
   private var progressDialog: ProgressCardDialogFragment? = null
-  private var breezeManager: BreezeManager? = null
+  // Breeze manager for AI assistant - direct access to working implementation
+  private val breezeManager: BreezeManager? by lazy {
+    if (com.mtkresearch.securesms.breeze.BreezeConfig.FEATURE_ENABLED) {
+      try {
+        BreezeManager.getInstance(requireContext())
+      } catch (e: Exception) {
+        Log.e("ConversationFragment", "Failed to get BreezeManager", e)
+        null
+      }
+    } else {
+      null
+    }
+  }
 
   private val jumpAndPulseScrollStrategy = object : ScrollToPositionDelegate.ScrollStrategy {
     override fun performScroll(recyclerView: RecyclerView, layoutManager: LinearLayoutManager, position: Int, smooth: Boolean) {
@@ -785,7 +797,6 @@ class ConversationFragment :
 
     // Cleanup Breeze AI Assistant
     breezeManager?.cleanup()
-    breezeManager = null
     
     // Cleanup rainbow animation
     stopRainbowAnimation()
@@ -1373,26 +1384,22 @@ class ConversationFragment :
 
       // Check if we have overlay permissions
       if (permissionManager.hasRequiredPermissions()) {
-        Log.d("ConversationFragment", "Permissions granted, initializing BreezeManager...")
-        // Initialize the simplified Breeze manager
-        breezeManager = BreezeManager.getInstance(requireContext())
-        
-        // Register text injection callback
-        breezeManager!!.setTextInjectionCallback { textToInject ->
+        Log.d("ConversationFragment", "Permissions granted, initializing Breeze callbacks...")
+
+        // Register callbacks with BreezeManager directly
+        breezeManager?.setTextInjectionCallback { textToInject ->
           this@ConversationFragment.injectTextIntoComposeField(textToInject)
         }
 
-        // Register text retrieval callback to get current input text
-        breezeManager!!.setTextRetrievalCallback {
+        breezeManager?.setTextRetrievalCallback {
           composeText.textTrimmed.toString()
         }
 
-        // Register rainbow animation callback for AI text injection
-        breezeManager!!.setRainbowAnimationCallback {
+        breezeManager?.setRainbowAnimationCallback {
           this@ConversationFragment.triggerRainbowAnimationAfterAIInjection()
         }
-        
-        Log.d("ConversationFragment", "Breeze AI Manager initialized successfully: ${breezeManager != null}")
+
+        Log.d("ConversationFragment", "Breeze AI callbacks registered successfully: ${breezeManager != null}")
       } else {
         Log.w("ConversationFragment", "Overlay permissions not granted for Breeze AI")
       }
@@ -4425,9 +4432,8 @@ class ConversationFragment :
       Log.d("ConversationFragment", "  view: $view")
       Log.d("ConversationFragment", "====================================")
 
-      // Initialize BreezeManager if not already done and needed
-      if (breezeManager == null && hasFocus) {
-        Log.d("ConversationFragment", "BreezeManager is null, attempting to initialize...")
+      // Initialize Breeze callbacks on first focus
+      if (hasFocus) {
         initializeBreezeAI()
       }
 
@@ -4445,7 +4451,7 @@ class ConversationFragment :
             // Show spark icon with current text and thread ID
             val currentText = composeText.textTrimmed.toString()
             val threadId = args.threadId
-            
+
             Log.d("ConversationFragment", "Current text: '$currentText'")
             Log.d("ConversationFragment", "Thread ID: $threadId")
 
@@ -4461,7 +4467,7 @@ class ConversationFragment :
         }
       } ?: run {
         if (hasFocus) {
-          Log.w("ConversationFragment", "BreezeManager is still null after initialization attempt - check permissions and feature flags")
+          Log.w("ConversationFragment", "BreezeManager is null - check permissions and feature flags")
         } else {
           Log.d("ConversationFragment", "BreezeManager is null, but focus lost - no action needed")
         }

@@ -22,8 +22,8 @@ plugins {
 
 apply(from = "static-ips.gradle.kts")
 
-val canonicalVersionCode = 1619
-val canonicalVersionName = "7.65.1-mr0.3.0-beta"
+val canonicalVersionCode = 1620
+val canonicalVersionName = "7.65.1-mr0.3.1-beta"
 val currentHotfixVersion = 0
 val maxHotfixVersions = 100
 
@@ -50,7 +50,11 @@ val selectableVariants = listOf(
   "playStagingInstrumentation",
   "playStagingRelease",
   "websiteProdSpinner",
-  "websiteProdRelease"
+  "websiteProdRelease",
+  "breezePlayProdDebug",
+  "breezePlayProdRelease",
+  "breezePlayStagingDebug",
+  "breezePlayStagingRelease"
 )
 
 val signalBuildToolsVersion: String by rootProject.extra
@@ -178,7 +182,6 @@ android {
   }
 
   defaultConfig {
-    applicationId = "com.mtkresearch.securesms"
     versionCode = (canonicalVersionCode * maxHotfixVersions) + currentHotfixVersion
     versionName = canonicalVersionName
 
@@ -382,6 +385,15 @@ android {
       buildConfigField("boolean", "LINK_DEVICE_UX_ENABLED", "true")
     }
 
+    create("breezePlay") {
+      dimension = "distribution"
+      applicationId = "com.mtkresearch.securesms"
+      buildConfigField("boolean", "MANAGES_APP_UPDATES", "false")
+      buildConfigField("String", "APK_UPDATE_MANIFEST_URL", "null")
+      buildConfigField("String", "BUILD_DISTRIBUTION_TYPE", "\"breezePlay\"")
+      buildConfigField("boolean", "LINK_DEVICE_UX_ENABLED", "true")
+    }
+
     create("prod") {
       dimension = "environment"
 
@@ -508,6 +520,10 @@ dependencies {
   implementation(project(":sticky-header-grid"))
   implementation(project(":photoview"))
   implementation(project(":core-ui"))
+  
+  // Breeze AI modules
+  implementation(project(":breeze-api"))
+  "breezePlayImplementation"(project(":breeze"))
 
   implementation(libs.androidx.fragment.ktx)
   implementation(libs.androidx.appcompat) {
