@@ -33,8 +33,13 @@ maps.key
 kls_database.db
 .kotlin
 
+# Gradle verification dryrun files
+gradle/verification-metadata.dryrun.xml
+
 CLAUDE.md
 .specify/
 .claude/
 mx_dev/
+specs/app/playProd/release/*.aab
+app/playProd/
 specs/

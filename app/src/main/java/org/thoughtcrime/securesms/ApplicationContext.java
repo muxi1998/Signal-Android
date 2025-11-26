@@ -204,6 +204,7 @@ public class ApplicationContext extends Application implements AppForegroundObse
               .addNonBlocking(EmojiSource::refresh)
               .addNonBlocking(() -> AppDependencies.getGiphyMp4Cache().onAppStart(this))
               .addNonBlocking(AppDependencies::getBillingApi)
+              .addNonBlocking(this::initializeBreeze)
               .addNonBlocking(this::ensureProfileUploaded)
               .addNonBlocking(() -> AppDependencies.getExpireStoriesManager().scheduleIfNecessary())
               .addNonBlocking(BackupRepository::maybeFixAnyDanglingUploadProgress)
@@ -379,6 +380,21 @@ public class ApplicationContext extends Application implements AppForegroundObse
 
   private void initializeApplicationMigrations() {
     ApplicationMigrations.onApplicationCreate(this, AppDependencies.getJobManager());
+  }
+
+  private void initializeBreeze() {
+    if ("breezePlay".equals(BuildConfig.BUILD_DISTRIBUTION_TYPE)) {
+      try {
+        Class<?> initializer = Class.forName("org.thoughtcrime.securesms.BreezePlayInitializer");
+        java.lang.reflect.Method initMethod = initializer.getMethod("initialize", android.app.Application.class);
+        initMethod.invoke(null, this);
+        Log.i(TAG, "Breeze AI initialized successfully");
+      } catch (ClassNotFoundException e) {
+        Log.w(TAG, "BreezePlayInitializer not found - Breeze AI disabled");
+      } catch (Exception e) {
+        Log.e(TAG, "Failed to initialize Breeze AI", e);
+      }
+    }
   }
 
   public void initializeMessageRetrieval() {

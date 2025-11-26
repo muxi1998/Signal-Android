@@ -1,14 +1,14 @@
-package org.thoughtcrime.securesms.mrutil.model
+package com.mtkresearch.breeze.edgeai.models
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 
 /**
  * JSON structure for messages with dialog history.
- * Used for MR_util message transformation feasibility study.
+ * Used by EdgeAI "Make History in JSON" usecase.
  */
 data class TransformedMessage(
-    @JsonProperty("dialog_history") val dialogHistory: List<DialogMessage>,
+    @JsonProperty("dialog_history") val dialogHistory: List<Any>, // Flexible to accept different message formats
     @JsonProperty("text") val text: String
 ) {
 

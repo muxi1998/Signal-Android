@@ -39,3 +39,43 @@ jobs:
       with:
         name: reports
         path: '*/build/reports'
+
+  build-breeze:
+    name: Build BreezePlay Variant
+    runs-on: ubuntu-latest-8-cores
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+          submodules: true
+
+    - name: set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+        cache: gradle
+
+    - name: Validate Gradle Wrapper
+      uses: gradle/actions/wrapper-validation@v5
+
+    - name: Build BreezePlay Debug
+      run: ./gradlew :Signal-Android:assembleBreezePlayProdDebug
+
+    - name: Build BreezePlay Release
+      run: ./gradlew :Signal-Android:assembleBreezePlayProdRelease
+
+    - name: Archive BreezePlay APKs
+      uses: actions/upload-artifact@v4
+      with:
+        name: breeze-apks
+        path: |
+          app/build/outputs/apk/breezePlayProd/debug/*.apk
+          app/build/outputs/apk/breezePlayProd/release/*.apk
+
+    - name: Archive reports for failed build
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: breeze-reports
+        path: '*/build/reports'
