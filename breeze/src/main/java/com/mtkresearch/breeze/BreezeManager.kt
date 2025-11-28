@@ -411,6 +411,9 @@ class AISession private constructor(
           .onCompletion { error ->
             isStreaming = false
             if (error == null) {
+              // Trim trailing whitespace/newlines that LLMs often output
+              currentSuggestion = currentSuggestion.trim()
+              streamingCallback?.invoke(currentSuggestion)
               Log.d(TAG, "Streaming completed. Final text: '$currentSuggestion'")
             }
           }
