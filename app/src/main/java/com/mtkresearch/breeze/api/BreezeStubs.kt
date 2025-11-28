@@ -20,8 +20,11 @@ data class MessageSummary(val id: Long, val body: String?, val sender: String?, 
  * Stub UI hook with empty implementations.
  */
 interface BreezeUiHook {
-    fun showSparkIcon(context: Context, inputView: View, inputBounds: Rect, inputText: String, threadId: Long) {}
-    fun hideSparkIcon() {}
+    fun showRainbowPenIcon(context: Context, penButton: View, inputText: String, threadId: Long, onTapped: () -> Unit) {}
+    fun showRainbowRobotIcon(context: Context, robotButton: View, threadId: Long, onTapped: () -> Unit) {}
+    fun hideContextualIcons() {}
+    fun onContextualIconTapped(inputBounds: Rect, inputText: String) {}
+
     fun hideAll() {}
     fun setTextInjectionCallback(callback: (String) -> Unit) {}
     fun setTextRetrievalCallback(callback: () -> String) {}

@@ -28,7 +28,13 @@ interface BreezeUiHook {
   /**
    * Hide the Breeze spark icon.
    */
-  fun hideSparkIcon()
+  fun hideContextualIcons()
+
+  /**
+   * Handle tap on contextual icon.
+   */
+  fun onContextualIconTapped(inputBounds: Rect, inputText: String)
+
 
   /**
    * Hide all Breeze UI elements.

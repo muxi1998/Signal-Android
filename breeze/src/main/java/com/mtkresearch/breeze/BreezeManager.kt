@@ -5,6 +5,10 @@ import android.app.Application
 import android.content.Context
 import android.graphics.Rect
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.ViewGroup
+import android.widget.PopupWindow
+import android.view.View
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -45,7 +49,10 @@ class BreezeManager private constructor(
   private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
   private val windowPreferences = WindowPreferences(context)
   private var floatingWindow: BreezeFloatingWindow? = null
-  private var sparkIcon: SparkIcon? = null
+  
+  // Contextual icon click handlers
+  private var penIconTapHandler: (() -> Unit)? = null
+  private var robotIconTapHandler: (() -> Unit)? = null
 
   // AI state  
   private var currentSession: AISession? = null
@@ -133,8 +140,68 @@ class BreezeManager private constructor(
    */
   fun hideSparkIcon() {
     scope.launch {
-      sparkIcon?.remove()
-      sparkIcon = null
+      penIconTapHandler = null
+      robotIconTapHandler = null
+    }
+  }
+
+  private var choicePopup: PopupWindow? = null
+
+  /**
+   * Handle contextual icon tap (pen or robot).
+   * Shows the floating window with tone change options.
+   * Called from ConversationFragment when user taps a contextual icon.
+   */
+  fun onContextualIconTapped(inputBounds: Rect, inputText: String) {
+    // Prevent multiple panels
+    if (floatingWindow?.isShowing() == true || choicePopup?.isShowing == true) {
+      return
+    }
+
+    scope.launch {
+      try {
+        // If input is empty, show choice popup (Voice vs Text)
+        if (inputText.isEmpty()) {
+          showInputChoicePopup(inputBounds)
+          return@launch
+        }
+
+        // Store original input text for History JSON feature
+        originalInputText = inputText
+        
+        // Create new AI session with thread ID
+        currentSession = AISession.create(inputText, previousSummary, currentThreadId)
+
+        // Show floating window with saved size/position
+        var windowSettings = windowPreferences.getWindowSettings()
+        
+        // Validate saved settings and reset if corrupted
+        val displayMetrics = context.resources.displayMetrics
+        if (windowSettings.height > displayMetrics.heightPixels * 0.6 || 
+            windowSettings.width > displayMetrics.widthPixels) {
+          Log.w(TAG, "Invalid saved window dimensions: ${windowSettings.width}x${windowSettings.height}, resetting")
+          windowPreferences.clearPreferences()
+          windowSettings = windowPreferences.getWindowSettings()
+        }
+        
+        floatingWindow = BreezeFloatingWindow.create(
+          context = context,
+          anchorBounds = inputBounds,
+          savedSettings = windowSettings,
+          session = currentSession!!,
+          onAccept = ::onAcceptSuggestion,
+          onDismiss = ::onDismissSuggestion,
+          onResize = windowPreferences::saveWindowSettings,
+          onMove = windowPreferences::saveWindowPosition,
+          onToneChange = ::onToneChipTapped,
+          onSendToSelf = ::onSendToSelfTapped
+        )
+
+        floatingWindow?.show()
+        Log.d(TAG, "Floating window shown from contextual icon tap")
+      } catch (e: Exception) {
+        Log.e(TAG, "Error handling contextual icon tap", e)
+      }
     }
   }
 
@@ -197,50 +264,6 @@ class BreezeManager private constructor(
       hideFloatingWindow()
       hideSparkIcon()
       currentSession = null
-    }
-  }
-
-  private fun onSparkIconTapped(inputBounds: Rect, inputText: String) {
-    scope.launch {
-      try {
-        // Store original input text for History JSON feature
-        originalInputText = inputText
-        
-        // Create new AI session with thread ID
-        currentSession = AISession.create(inputText, previousSummary, currentThreadId)
-
-        // Hide spark icon
-        hideSparkIcon()
-
-        // Show floating window with saved size/position
-        var windowSettings = windowPreferences.getWindowSettings()
-        
-        // Validate saved settings and reset if corrupted
-        val displayMetrics = context.resources.displayMetrics
-        if (windowSettings.height > displayMetrics.heightPixels * 0.6 || 
-            windowSettings.width > displayMetrics.widthPixels) {
-          Log.w(TAG, "Invalid saved window dimensions: ${windowSettings.width}x${windowSettings.height}, resetting")
-          windowPreferences.clearPreferences()
-          windowSettings = windowPreferences.getWindowSettings()
-        }
-        
-        floatingWindow = BreezeFloatingWindow.create(
-          context = context,
-          anchorBounds = inputBounds,
-          savedSettings = windowSettings,
-          session = currentSession!!,
-          onAccept = ::onAcceptSuggestion,
-          onDismiss = ::onDismissSuggestion,
-          onResize = windowPreferences::saveWindowSettings,
-          onMove = windowPreferences::saveWindowPosition,
-          onToneChange = ::onToneChipTapped
-        )
-
-        floatingWindow?.show()
-        Log.d(TAG, "Floating window shown")
-      } catch (e: Exception) {
-        Log.e(TAG, "Error handling spark icon tap", e)
-      }
     }
   }
 
@@ -427,6 +450,42 @@ class AISession private constructor(
         streamingCallback?.invoke(currentSuggestion)
       }
     }
+  }
+
+  private fun showInputChoicePopup(anchorBounds: Rect) {
+    val layoutInflater = LayoutInflater.from(context)
+    val popupView = layoutInflater.inflate(com.mtkresearch.breeze.R.layout.breeze_input_choice_popup, null)
+
+    choicePopup = PopupWindow(
+      popupView,
+      ViewGroup.LayoutParams.WRAP_CONTENT,
+      ViewGroup.LayoutParams.WRAP_CONTENT,
+      true
+    ).apply {
+      isOutsideTouchable = true
+      elevation = 10f
+    }
+
+    // Voice Choice (Primary)
+    popupView.findViewById<View>(com.mtkresearch.breeze.R.id.breeze_choice_voice).setOnClickListener {
+      Log.d(TAG, "Voice choice selected")
+      choicePopup?.dismiss()
+      // TODO: Trigger voice recording. For now, we just dismiss.
+      // Ideally, we would call a callback to ConversationFragment to trigger the mic.
+    }
+
+    // Text Choice (Secondary)
+    popupView.findViewById<View>(com.mtkresearch.breeze.R.id.breeze_choice_text).setOnClickListener {
+      Log.d(TAG, "Text choice selected")
+      choicePopup?.dismiss()
+      // Focus input field (already happens when dismissing, but explicit intent is good)
+    }
+
+    // Calculate position to show above the anchor
+    val x = anchorBounds.left
+    val y = anchorBounds.top - 150 // Approximate height offset, should be calculated better
+
+    choicePopup?.showAtLocation(popupView, android.view.Gravity.NO_GRAVITY, x, y)
   }
 }
 

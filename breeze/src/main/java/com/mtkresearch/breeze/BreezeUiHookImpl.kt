@@ -25,13 +25,27 @@ class BreezeUiHookImpl(private val context: Context) : BreezeUiHook {
     inputView: View,
     inputBounds: Rect,
     inputText: String,
-    threadId: Long
+    threadId: Long,
+    onTapped: () -> Unit
   ) {
     getManager().showSparkIcon(inputBounds, inputText, threadId)
   }
   
-  override fun hideSparkIcon() {
-    getManager().hideSparkIcon()
+  override fun showRainbowRobotIcon(
+    context: Context,
+    robotButton: View,
+    threadId: Long,
+    onTapped: () -> Unit
+  ) {
+    getManager().showRainbowRobotIcon(robotButton, threadId, onTapped)
+  }
+  
+  override fun hideContextualIcons() {
+    getManager().hideContextualIcons()
+  }
+
+  override fun onContextualIconTapped(inputBounds: Rect, inputText: String) {
+    getManager().onContextualIconTapped(inputBounds, inputText)
   }
   
   override fun hideAll() {

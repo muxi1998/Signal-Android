@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp"
+    android:background="@drawable/breeze_floating_window_background"
+    android:elevation="8dp"
+    android:gravity="center_vertical">
+
+    <!-- Voice Input (Primary) -->
+    <FrameLayout
+        android:id="@+id/breeze_choice_voice"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginEnd="12dp"
+        android:background="@drawable/breeze_tone_chip_background_selected"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?selectableItemBackground">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="center"
+            app:srcCompat="@drawable/ic_mic_24"
+            app:tint="@color/signal_colorOnSurface" />
+    </FrameLayout>
+
+    <!-- Text Input (Secondary) -->
+    <FrameLayout
+        android:id="@+id/breeze_choice_text"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/breeze_tone_chip_background"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?selectableItemBackground">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center"
+            app:srcCompat="@drawable/ic_keyboard_24"
+            app:tint="@color/signal_colorOnSurfaceVariant" />
+    </FrameLayout>
+
+</LinearLayout>

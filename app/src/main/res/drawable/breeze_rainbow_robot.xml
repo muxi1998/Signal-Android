@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    
+    <!-- Simplified rainbow robot with earphones -->
+    
+    <!-- Robot head -->
+    <path
+        android:pathData="M7,4C7,2.9 7.9,2 9,2L15,2C16.1,2 17,2.9 17,4L17,12C17,13.1 16.1,14 15,14L9,14C7.9,14 7,13.1 7,12L7,4Z"
+        android:fillColor="#6B4EFF"/>
+    
+    <!-- Left eye (circle as path) -->
+    <path
+        android:pathData="M10,5.5C11.1,5.5 11.5,5.9 11.5,7C11.5,8.1 11.1,8.5 10,8.5C8.9,8.5 8.5,8.1 8.5,7C8.5,5.9 8.9,5.5 10,5.5Z"
+        android:fillColor="#FFFFFF"/>
+    
+    <!-- Right eye (circle as path) -->
+    <path
+        android:pathData="M14,5.5C15.1,5.5 15.5,5.9 15.5,7C15.5,8.1 15.1,8.5 14,8.5C12.9,8.5 12.5,8.1 12.5,7C12.5,5.9 12.9,5.5 14,5.5Z"
+        android:fillColor="#FFFFFF"/>
+    
+    <!-- Smile -->
+    <path
+        android:pathData="M10,10C10,10 10.5,11 12,11C13.5,11 14,10 14,10"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"/>
+    
+    <!-- Antenna -->
+    <path
+        android:pathData="M12,2L12,0.5"
+        android:strokeColor="#4E9FFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"/>
+    
+    <!-- Antenna ball (circle as path) -->
+    <path
+        android:pathData="M12,0.5m-0.8,0a0.8,0.8 0,1,1 1.6,0a0.8,0.8 0,1,1 -1.6,0"
+        android:fillColor="#FFD700"/>
+    
+    <!-- Left earphone -->
+    <path
+        android:pathData="M7,6C5,6 3,7 3,9L3,11C3,12 3.5,13 4.5,13C5.5,13 6,12 6,11L6,9C6,7.5 6.5,6.5 7,6Z"
+        android:fillColor="#4E9FFF"/>
+    
+    <!-- Right earphone -->
+    <path
+        android:pathData="M17,6C19,6 21,7 21,9L21,11C21,12 20.5,13 19.5,13C18.5,13 18,12 18,11L18,9C18,7.5 17.5,6.5 17,6Z"
+        android:fillColor="#4E9FFF"/>
+    
+    <!-- Robot body -->
+    <path
+        android:pathData="M9,14L9,18C9,19.1 9.9,20 11,20L13,20C14.1,20 15,19.1 15,18L15,14"
+        android:strokeColor="#FF6B4E"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"/>
+    
+    <!-- Left arm -->
+    <path
+        android:pathData="M7,8L5,10"
+        android:strokeColor="#FFD24E"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"/>
+    
+    <!-- Right arm -->
+    <path
+        android:pathData="M17,8L19,10"
+        android:strokeColor="#FFD24E"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"/>
+    
+    <!-- Sound wave 1 -->
+    <path
+        android:pathData="M1,9C1,9 1.5,10 1.5,11C1.5,12 1,13 1,13"
+        android:strokeColor="#4EFFDB"
+        android:strokeWidth="0.8"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"
+        android:alpha="0.6"/>
+    
+    <!-- Sound wave 2 -->
+    <path
+        android:pathData="M23,9C23,9 22.5,10 22.5,11C22.5,12 23,13 23,13"
+        android:strokeColor="#4EFFDB"
+        android:strokeWidth="0.8"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"
+        android:alpha="0.6"/>
+</vector>

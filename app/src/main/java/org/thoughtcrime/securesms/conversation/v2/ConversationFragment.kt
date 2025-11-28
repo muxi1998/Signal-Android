@@ -4426,30 +4426,12 @@ class ConversationFragment :
       // Initialize Breeze callbacks on first focus
       if (hasFocus) {
         initializeBreezeAI()
+        setupContextualIcons()
       }
 
       breezeUiHook?.let { hook ->
         try {
-          if (hasFocus) {
-            Log.d("ConversationFragment", "AI Assistant: Text field focused")
-
-            // Get input field bounds
-            val bounds = Rect()
-            view.getGlobalVisibleRect(bounds)
-
-            Log.d("ConversationFragment", "Input field bounds: $bounds")
-
-            // Show spark icon with current text and thread ID
-            val currentText = composeText.textTrimmed.toString()
-            val threadId = args.threadId
-
-            Log.d("ConversationFragment", "Current text: '$currentText'")
-            Log.d("ConversationFragment", "Thread ID: $threadId")
-
-            Log.d("ConversationFragment", "Calling hook.showSparkIcon...")
-            hook.showSparkIcon(requireContext(), view, bounds, currentText, threadId)
-            Log.d("ConversationFragment", "hook.showSparkIcon call completed")
-          } else {
+          if (!hasFocus) {
             Log.d("ConversationFragment", "AI Assistant: Text field focus lost")
             hook.hideAll()
           }
@@ -4465,9 +4447,69 @@ class ConversationFragment :
       }
     }
 
+    private fun setupContextualIcons() {
+      val penButton = inputPanel.breezeRainbowPenButton
+      val robotButton = inputPanel.breezeRainbowRobotButton
+      
+      if (penButton == null || robotButton == null) {
+        Log.w("ConversationFragment", "Breeze icon buttons not found in InputPanel")
+        return
+      }
+
+      // Set up click listeners for both icons
+      val bounds = Rect()
+      composeText.getGlobalVisibleRect(bounds)
+      val threadId = args.threadId
+
+      penButton.setOnClickListener {
+        val currentText = composeText.textTrimmed.toString()
+        Log.d("ConversationFragment", "Rainbow pen tapped, text: '$currentText'")
+        breezeUiHook?.let { hook ->
+          try {
+            // Call BreezeManager to show floating window
+            hook.onContextualIconTapped(bounds, currentText)
+          } catch (e: Exception) {
+            Log.e("ConversationFragment", "Error handling pen icon tap", e)
+          }
+        }
+      }
+
+      robotButton.setOnClickListener {
+        Log.d("ConversationFragment", "Rainbow robot tapped")
+        breezeUiHook?.let { hook ->
+          try {
+            // Call BreezeManager to show floating window with empty text
+            hook.onContextualIconTapped(bounds, "")
+          } catch (e: Exception) {
+            Log.e("ConversationFragment", "Error handling robot icon tap", e)
+          }
+        }
+      }
+
+      // Update icon visibility based on current text
+      updateContextualIconVisibility()
+    }
+
+    private fun updateContextualIconVisibility() {
+      val penButton = inputPanel.breezeRainbowPenButton
+      val robotButton = inputPanel.breezeRainbowRobotButton
+      
+      if (penButton == null || robotButton == null) {
+        return
+      }
+
+      val hasText = composeText.textTrimmed.isNotEmpty()
+      
+      // Show pen when there's text, robot when empty
+      penButton.visibility = if (hasText) View.VISIBLE else View.GONE
+      robotButton.visibility = if (!hasText) View.VISIBLE else View.GONE
+      
+      Log.d("ConversationFragment", "Updated icon visibility: hasText=$hasText, pen=${penButton.visibility}, robot=${robotButton.visibility}")
+    }
+
     private fun handleAIAssistantOnTextChange(text: String, start: Int, before: Int, count: Int) {
-      // Per enhanced spec: AI activation is on-demand via spark icon tap only
-      // No automatic triggers on text change - keeps the experience unobtrusive
+      // Update contextual icon visibility based on text presence
+      updateContextualIconVisibility()
     }
 
     override fun onStylingChanged() {
