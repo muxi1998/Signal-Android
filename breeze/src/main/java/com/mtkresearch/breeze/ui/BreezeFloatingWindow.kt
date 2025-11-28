@@ -121,6 +121,13 @@ class BreezeFloatingWindow private constructor(
     session = newSession
     windowView?.updateSession(newSession)
   }
+  
+  /**
+   * Update streaming text in real-time as tokens arrive.
+   */
+  fun updateStreamingText(partialText: String) {
+    windowView?.updateStreamingText(partialText)
+  }
 
   // Temporary movement for slide gestures only
   private fun onSlideTemporaryMove(offsetY: Int) {
@@ -621,6 +628,13 @@ private class BreezeWindowView(
   fun updateSession(newSession: AISession) {
     session = newSession
     updateContent()
+  }
+  
+  /**
+   * Update streaming text in real-time as tokens arrive.
+   */
+  fun updateStreamingText(partialText: String) {
+    currentSuggestionView.text = partialText
   }
 
   private fun updateContent() {

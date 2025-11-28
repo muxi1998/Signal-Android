@@ -128,9 +128,7 @@ import org.thoughtcrime.securesms.badges.gifts.OpenableGiftItemDecoration
 import org.thoughtcrime.securesms.badges.gifts.viewgift.received.ViewReceivedGiftBottomSheet
 import org.thoughtcrime.securesms.badges.gifts.viewgift.sent.ViewSentGiftBottomSheet
 import org.thoughtcrime.securesms.billing.upgrade.UpgradeToStartMediaBackupSheet
-import com.mtkresearch.securesms.breeze.BreezeManager
-import com.mtkresearch.securesms.breeze.PermissionManager
-import com.mtkresearch.securesms.breeze.rainbow.RainbowAnimationHelper
+import com.mtkresearch.breeze.api.BreezeRegistry
 import org.thoughtcrime.securesms.calls.YouAreAlreadyInACallSnackbar
 import org.thoughtcrime.securesms.components.AnimatingToggle
 import org.thoughtcrime.securesms.components.ComposeText
@@ -572,18 +570,9 @@ class ConversationFragment :
   private var menuProvider: ConversationOptionsMenu.Provider? = null
   private var scrollListener: ScrollListener? = null
   private var progressDialog: ProgressCardDialogFragment? = null
-  // Breeze manager for AI assistant - direct access to working implementation
-  private val breezeManager: BreezeManager? by lazy {
-    if (com.mtkresearch.securesms.breeze.BreezeConfig.FEATURE_ENABLED) {
-      try {
-        BreezeManager.getInstance(requireContext())
-      } catch (e: Exception) {
-        Log.e("ConversationFragment", "Failed to get BreezeManager", e)
-        null
-      }
-    } else {
-      null
-    }
+  // Breeze UI hook for AI assistant via registry
+  private val breezeUiHook by lazy {
+    BreezeRegistry.uiHook
   }
 
   private val jumpAndPulseScrollStrategy = object : ScrollToPositionDelegate.ScrollStrategy {
@@ -799,7 +788,7 @@ class ConversationFragment :
     }
 
     // Cleanup Breeze AI Assistant
-    breezeManager?.cleanup()
+    breezeUiHook?.cleanup()
     
     // Cleanup rainbow animation
     stopRainbowAnimation()
@@ -1377,34 +1366,28 @@ class ConversationFragment :
 
   private fun initializeBreezeAI() {
     try {
-      // Check feature flag first
-      if (!com.mtkresearch.securesms.breeze.BreezeConfig.FEATURE_ENABLED) {
-        Log.d("ConversationFragment", "Breeze AI feature is disabled via config")
-        return
-      }
-
-      val permissionManager = PermissionManager(requireContext())
+      Log.d("ConversationFragment", "Initializing Breeze AI...")
 
       Log.d("ConversationFragment", "Checking Breeze AI permissions...")
 
       // Check if we have overlay permissions
-      if (permissionManager.hasRequiredPermissions()) {
+      if (android.provider.Settings.canDrawOverlays(requireContext())) {
         Log.d("ConversationFragment", "Permissions granted, initializing Breeze callbacks...")
 
-        // Register callbacks with BreezeManager directly
-        breezeManager?.setTextInjectionCallback { textToInject ->
+        // Register callbacks with BreezeUiHook via registry
+        breezeUiHook?.setTextInjectionCallback { textToInject ->
           this@ConversationFragment.injectTextIntoComposeField(textToInject)
         }
 
-        breezeManager?.setTextRetrievalCallback {
+        breezeUiHook?.setTextRetrievalCallback {
           composeText.textTrimmed.toString()
         }
 
-        breezeManager?.setRainbowAnimationCallback {
+        breezeUiHook?.setRainbowAnimationCallback {
           this@ConversationFragment.triggerRainbowAnimationAfterAIInjection()
         }
 
-        Log.d("ConversationFragment", "Breeze AI callbacks registered successfully: ${breezeManager != null}")
+        Log.d("ConversationFragment", "Breeze AI callbacks registered successfully: ${breezeUiHook != null}")
       } else {
         Log.w("ConversationFragment", "Overlay permissions not granted for Breeze AI")
       }
@@ -4436,7 +4419,7 @@ class ConversationFragment :
       Log.d("ConversationFragment", "====================================")
       Log.d("ConversationFragment", "handleAIAssistantOnFocusChange called:")
       Log.d("ConversationFragment", "  hasFocus: $hasFocus")
-      Log.d("ConversationFragment", "  breezeManager: ${breezeManager != null}")
+      Log.d("ConversationFragment", "  breezeUiHook: ${breezeUiHook != null}")
       Log.d("ConversationFragment", "  view: $view")
       Log.d("ConversationFragment", "====================================")
 
@@ -4445,7 +4428,7 @@ class ConversationFragment :
         initializeBreezeAI()
       }
 
-      breezeManager?.let { manager ->
+      breezeUiHook?.let { hook ->
         try {
           if (hasFocus) {
             Log.d("ConversationFragment", "AI Assistant: Text field focused")
@@ -4463,21 +4446,21 @@ class ConversationFragment :
             Log.d("ConversationFragment", "Current text: '$currentText'")
             Log.d("ConversationFragment", "Thread ID: $threadId")
 
-            Log.d("ConversationFragment", "Calling manager.showSparkIcon...")
-            manager.showSparkIcon(bounds, currentText, threadId)
-            Log.d("ConversationFragment", "manager.showSparkIcon call completed")
+            Log.d("ConversationFragment", "Calling hook.showSparkIcon...")
+            hook.showSparkIcon(requireContext(), view, bounds, currentText, threadId)
+            Log.d("ConversationFragment", "hook.showSparkIcon call completed")
           } else {
             Log.d("ConversationFragment", "AI Assistant: Text field focus lost")
-            manager.hideAll()
+            hook.hideAll()
           }
         } catch (e: Exception) {
           Log.e("ConversationFragment", "AI Assistant focus handling error", e)
         }
       } ?: run {
         if (hasFocus) {
-          Log.w("ConversationFragment", "BreezeManager is null - check permissions and feature flags")
+          Log.w("ConversationFragment", "BreezeUiHook is null - check feature flags")
         } else {
-          Log.d("ConversationFragment", "BreezeManager is null, but focus lost - no action needed")
+          Log.d("ConversationFragment", "BreezeUiHook is null, but focus lost - no action needed")
         }
       }
     }
@@ -4545,8 +4528,8 @@ class ConversationFragment :
     }
   }
   
-  // Rainbow animation instance for managing persistent animation
-  private var currentRainbowHelper: RainbowAnimationHelper? = null
+  // Rainbow animation placeholder
+  private var rainbowAnimationActive: Boolean = false
   
   /**
    * Trigger rainbow animation after AI text injection.
@@ -4555,23 +4538,11 @@ class ConversationFragment :
    */
   private fun triggerRainbowAnimationAfterAIInjection() {
     try {
-      Log.d("ConversationFragment", "Triggering persistent rainbow animation for AI text injection")
-      
-      // Stop any existing rainbow animation
-      stopRainbowAnimation()
-      
-      // Only animate if the text field is not empty (has AI-injected content)
-      if (composeText.text?.isNotEmpty() == true) {
-        // Apply rainbow to the compose bubble (main compose area without extra UI elements)
-        currentRainbowHelper = RainbowAnimationHelper.applyRainbowAfterAIInjection(composeBubble, this)
-        
-        Log.d("ConversationFragment", "Persistent rainbow animation started for compose bubble")
-      } else {
-        Log.d("ConversationFragment", "Skipping rainbow animation - text field is empty")
-      }
-      
+      Log.d("ConversationFragment", "Rainbow animation triggered (placeholder)")
+      rainbowAnimationActive = true
+      // TODO: Implement rainbow animation
     } catch (e: Exception) {
-      Log.e("ConversationFragment", "Error triggering rainbow animation after AI injection", e)
+      Log.e("ConversationFragment", "Error triggering rainbow animation", e)
     }
   }
   
@@ -4580,10 +4551,9 @@ class ConversationFragment :
    */
   private fun stopRainbowAnimation() {
     try {
-      currentRainbowHelper?.let { helper ->
-        Log.d("ConversationFragment", "Stopping rainbow animation")
-        helper.cleanup()
-        currentRainbowHelper = null
+      if (rainbowAnimationActive) {
+        Log.d("ConversationFragment", "Stopping rainbow animation (placeholder)")
+        rainbowAnimationActive = false
       }
     } catch (e: Exception) {
       Log.e("ConversationFragment", "Error stopping rainbow animation", e)

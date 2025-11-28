@@ -61,4 +61,22 @@ object BreezeConfig {
   const val MAX_SESSIONS_PER_APP = 3
   const val MAX_SUGGESTIONS_PER_SESSION = 10
   const val SESSION_MEMORY_LIMIT_MB = 2L
+  
+  /**
+   * EdgeAI Configuration
+   */
+  const val EDGEAI_INIT_TIMEOUT_MS = 10000L // 10 seconds for initialization
+  const val EDGEAI_DEFAULT_TEMPERATURE = 0.7f // Default LLM temperature
+  const val EDGEAI_DEFAULT_MAX_TOKENS = 2048 // Default max tokens for chat
+  const val EDGEAI_DEFAULT_VOICE = "alloy" // Default TTS voice
+  const val EDGEAI_DEFAULT_SPEED = 1.0f // Default TTS speed
+  const val EDGEAI_ASR_SAMPLE_RATE = 16000 // Default ASR sample rate (Hz)
+  
+  /**
+   * Text Rewrite Configuration
+   */
+  const val EDGEAI_REWRITE_TEMPERATURE = 0.7f // Temperature for text rewrites
+  const val EDGEAI_REWRITE_MAX_TOKENS = 512 // Max tokens for rewrite responses
+  const val EDGEAI_REWRITE_HISTORY_LIMIT = 10 // Number of history messages to include
+  const val EDGEAI_REWRITE_TIMEOUT_MS = 15000L // Timeout for rewrite operations
 }

@@ -30,6 +30,9 @@ dependencies {
   // API contract
   implementation(project(":breeze-api"))
   
+  // EdgeAI SDK for AI features (chat, ASR, TTS)
+  implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.8")
+  
   // Core dependencies
   implementation(project(":core-util"))
   implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")

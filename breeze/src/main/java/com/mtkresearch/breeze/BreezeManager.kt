@@ -13,6 +13,11 @@ import org.signal.core.util.logging.Log
 import com.mtkresearch.breeze.ui.BreezeFloatingWindow
 import com.mtkresearch.breeze.edgeai.EdgeAI
 import com.mtkresearch.breeze.edgeai.usecases.HistoryInJSON
+import com.mtkresearch.breeze.edgeai.usecases.TextRewriteUseCase
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 
 /**
  * Simplified main manager for Breeze AI Floating Assistant.
@@ -57,6 +62,9 @@ class BreezeManager private constructor(
   // Rainbow animation callback - set by ConversationFragment to trigger rainbow after AI injection
   private var rainbowAnimationCallback: (() -> Unit)? = null
   
+  // Streaming update callback - for updating floating window during streaming
+  private var streamingUpdateCallback: ((String) -> Unit)? = null
+
   // App backgrounding detection per spec (Line 218)
   private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
@@ -156,7 +164,7 @@ class BreezeManager private constructor(
     rainbowAnimationCallback = callback
     Log.d(TAG, "Rainbow animation callback registered")
   }
-  
+
   /**
    * Clear text injection callback when ConversationFragment is destroyed.
    */
@@ -283,10 +291,15 @@ class BreezeManager private constructor(
         val currentInputText = textRetrievalCallback?.invoke() ?: originalInputText
         Log.d(TAG, "Tone chip tapped: $toneType, using text: '$currentInputText'")
 
-        // Generate new suggestion with tone, using current input text
+        // Set streaming callback to update window in real-time
+        session.setStreamingCallback { partialText ->
+          floatingWindow?.updateStreamingText(partialText)
+        }
+
+        // Generate new suggestion with tone using streaming chat
         session.applyTone(toneType, currentInputText)
 
-        // Update window
+        // Final update after streaming completes
         floatingWindow?.updateSession(session)
       }
     }
@@ -315,8 +328,7 @@ class BreezeManager private constructor(
 }
 
 /**
- * AI Session that leverages EdgeAI usecases.
- * Currently uses "Make History in JSON" mock AI feature.
+ * AI Session that leverages EdgeAI streaming chat for tone rewrites.
  */
 class AISession private constructor(
   private val originalText: String,
@@ -325,57 +337,94 @@ class AISession private constructor(
 ) {
 
   companion object {
+    private val TAG = Log.tag(AISession::class.java)
+    
     fun create(text: String, previous: String, threadId: Long? = null): AISession {
       val session = AISession(text, previous, threadId)
       session.generateInitialSuggestion()
       return session
     }
   }
+  
+  private val textRewriteUseCase = TextRewriteUseCase()
+  private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
   var currentSuggestion: String = ""
     private set
 
   var previousSummary: String = previousText
     private set
+    
+  var isStreaming: Boolean = false
+    private set
+  
+  private var streamingCallback: ((String) -> Unit)? = null
 
   private fun generateInitialSuggestion() {
     currentSuggestion = if (originalText.isBlank()) {
-      "AI refined your text."
+      "Tap a tone to rewrite your message."
     } else {
-      "AI refined your text."
+      "Tap a tone to rewrite your message."
     }
   }
+  
+  /**
+   * Set callback for streaming text updates.
+   */
+  fun setStreamingCallback(callback: (String) -> Unit) {
+    streamingCallback = callback
+  }
 
+  /**
+   * Apply tone transformation using streaming LLM chat.
+   */
   fun applyTone(toneType: ToneType, currentInputText: String = originalText) {
     // Move current to previous
     if (currentSuggestion.isNotBlank()) {
       previousSummary = currentSuggestion
     }
-
-    // Generate new suggestion based on tone with optional context awareness
-    val contextPrefix = if (threadId != null) "[Context+${toneType}] " else "[${toneType}] "
     
-    currentSuggestion = when (toneType) {
-      ToneType.FORMAL -> "${contextPrefix}AI rewrote your message formally."
-      ToneType.FRIENDLY -> "${contextPrefix}Here's a friendlier version."
-      ToneType.CLARITY -> "${contextPrefix}Improved clarity."
-      ToneType.SHORTEN -> "${contextPrefix}Condensed version."
-      ToneType.EXPAND -> "${contextPrefix}Added detail."
-      ToneType.HISTORY_JSON -> {
-        // Use EdgeAI "Make History in JSON" usecase for this preset
-        if (threadId != null) {
-          try {
-            val request = HistoryInJSON.Request(
-              inputText = currentInputText,
-              threadId = threadId
-            )
-            EdgeAI.executeUsecase("history_in_json", request)
-          } catch (e: Exception) {
-            "${contextPrefix}History JSON formatting failed."
+    // Reset current suggestion for streaming
+    currentSuggestion = ""
+    isStreaming = true
+    
+    Log.d(TAG, "Applying tone: $toneType to text: '$currentInputText'")
+
+    // Use streaming chat for all tones
+    scope.launch {
+      try {
+        textRewriteUseCase.execute(
+          text = currentInputText,
+          toneType = toneType,
+          threadId = threadId
+        )
+          .onStart {
+            Log.d(TAG, "Streaming started for tone: $toneType")
+            currentSuggestion = "" // Clear for accumulation
           }
-        } else {
-          "${contextPrefix}History not available."
-        }
+          .onEach { token ->
+            // Accumulate tokens
+            currentSuggestion += token
+            // Notify callback for real-time UI update
+            streamingCallback?.invoke(currentSuggestion)
+          }
+          .onCompletion { error ->
+            isStreaming = false
+            if (error == null) {
+              Log.d(TAG, "Streaming completed. Final text: '$currentSuggestion'")
+            }
+          }
+          .catch { e ->
+            Log.e(TAG, "Error during tone rewrite streaming", e)
+            currentSuggestion = "Error: ${e.message}"
+            streamingCallback?.invoke(currentSuggestion)
+          }
+          .collect { } // Terminal operator - collection handled by onEach
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to apply tone: $toneType", e)
+        isStreaming = false
+        currentSuggestion = "Error: ${e.message}"
+        streamingCallback?.invoke(currentSuggestion)
       }
     }
   }

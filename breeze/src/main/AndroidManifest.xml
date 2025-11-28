@@ -1,4 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Breeze AI implementation module -->
+    
+    <!-- Permissions for AI features -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    
+    <!-- Override library minSdk requirement for EdgeAI SDK -->
+    <uses-sdk tools:overrideLibrary="com.mtkresearch.breezeapp.edgeai" />
+    
+    <!-- Query for BreezeApp Engine service -->
+    <queries>
+        <package android:name="com.mtkresearch.breezeapp.engine" />
+        <intent>
+            <action android:name="com.mtkresearch.breezeapp.engine.BreezeAppEngineService" />
+        </intent>
+    </queries>
 </manifest>
