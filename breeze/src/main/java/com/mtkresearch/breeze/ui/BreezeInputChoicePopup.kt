@@ -93,8 +93,13 @@ class BreezeInputChoicePopup(
     private val colorDisabled = android.graphics.Color.WHITE
     private val colorEnabled = android.graphics.Color.parseColor("#FF6B4E") // Orange
 
+    // For tracking anchor view to follow position changes
+    private var anchorView: View? = null
+    private var rootView: View? = null
+    private var layoutListener: android.view.ViewTreeObserver.OnGlobalLayoutListener? = null
+
     fun show() {
-        val rootView = activity.window.decorView.findViewById<View>(android.R.id.content)
+        rootView = activity.window.decorView.findViewById<View>(android.R.id.content)
         if (rootView == null) {
             Log.e(TAG, "Cannot show popup - no root view")
             return
@@ -106,7 +111,52 @@ class BreezeInputChoicePopup(
             imm.hideSoftInputFromWindow(focus.windowToken, 0)
         }
 
-        showPopupAtPosition(rootView)
+        showPopupAtPosition(rootView!!)
+
+        // Listen for layout changes to reposition popup (e.g., when keyboard hides)
+        setupLayoutListener()
+    }
+
+    private fun setupLayoutListener() {
+        layoutListener = android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            if (popupWindow?.isShowing == true && currentState == State.CHOICE) {
+                // Recalculate position based on fresh anchor bounds
+                updatePopupPosition()
+            }
+        }
+        rootView?.viewTreeObserver?.addOnGlobalLayoutListener(layoutListener)
+    }
+
+    private fun removeLayoutListener() {
+        layoutListener?.let { listener ->
+            rootView?.viewTreeObserver?.removeOnGlobalLayoutListener(listener)
+        }
+        layoutListener = null
+    }
+
+    private fun updatePopupPosition() {
+        val popup = popupWindow ?: return
+        val view = popupView ?: return
+
+        val screenWidth = activity.resources.displayMetrics.widthPixels
+        val density = activity.resources.displayMetrics.density
+        val padding = (16 * density).toInt()
+
+        val popupWidth = view.measuredWidth.takeIf { it > 0 } ?: (200 * density).toInt()
+        val popupHeight = view.measuredHeight.takeIf { it > 0 } ?: (100 * density).toInt()
+
+        // Center horizontally
+        var x = anchorBounds.centerX() - (popupWidth / 2)
+        x = x.coerceIn(padding, screenWidth - popupWidth - padding)
+
+        // Position above anchor - but we need fresh anchor position!
+        // Since we can't get fresh bounds here, use a fixed position from bottom
+        val screenHeight = activity.resources.displayMetrics.heightPixels
+        val bottomMargin = (80 * density).toInt() // Fixed margin from bottom
+        val y = screenHeight - bottomMargin - popupHeight
+
+        popup.update(x, y, -1, -1)
+        Log.d(TAG, "Updated popup position: ($x, $y)")
     }
 
     private fun showPopupAtPosition(rootView: View) {
@@ -474,6 +524,7 @@ class BreezeInputChoicePopup(
 
     private fun cleanup() {
         stopPulseAnimation()
+        removeLayoutListener()
         pendingRecordingStart = false
         handler.removeCallbacksAndMessages(null)
         if (isRecording) {
@@ -489,5 +540,7 @@ class BreezeInputChoicePopup(
             isRecording = false
         }
         hideKeyboard()
+        rootView = null
+        anchorView = null
     }
 }
