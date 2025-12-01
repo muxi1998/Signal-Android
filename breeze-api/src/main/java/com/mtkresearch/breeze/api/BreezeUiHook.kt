@@ -74,6 +74,14 @@ interface BreezeUiHook {
   fun setCurrentActivity(activity: Activity?)
 
   /**
+   * Set the current thread/conversation ID.
+   * Must be called when the conversation changes.
+   * Required for HistoryInJSON feature to fetch conversation history.
+   * @param threadId The current thread ID, or null if no conversation is active
+   */
+  fun setCurrentThreadId(threadId: Long?)
+
+  /**
    * Clear all callbacks.
    */
   fun clearCallbacks()

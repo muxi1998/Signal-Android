@@ -56,6 +56,10 @@ class BreezeUiHookImpl(private val context: Context) : BreezeUiHook {
     getManager().setCurrentActivity(activity)
   }
 
+  override fun setCurrentThreadId(threadId: Long?) {
+    getManager().setCurrentThreadId(threadId)
+  }
+
   override fun clearCallbacks() {
     getManager().clearTextInjectionCallback()
     getManager().clearTextRetrievalCallback()

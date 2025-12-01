@@ -73,6 +73,7 @@ class BreezeInputChoicePopup(
     // Processing views
     private var processingCheck: ImageView? = null
     private var processingText: TextView? = null
+    private var processingCancel: TextView? = null
 
     // Text input views
     private var textInput: EditText? = null
@@ -224,8 +225,13 @@ class BreezeInputChoicePopup(
 
     private fun updateSendButtonColor(hasText: Boolean) {
         sendButton?.let { button ->
-            val color = if (hasText) colorEnabled else colorDisabled
-            button.setColorFilter(color, android.graphics.PorterDuff.Mode.SRC_IN)
+            // Change background: orange when has text, gray when empty
+            val backgroundRes = if (hasText) {
+                R.drawable.breeze_send_button_background
+            } else {
+                R.drawable.breeze_send_button_disabled
+            }
+            button.setBackgroundResource(backgroundRes)
         }
     }
 
@@ -243,6 +249,7 @@ class BreezeInputChoicePopup(
             // Processing views
             processingCheck = view.findViewById(R.id.breeze_processing_check)
             processingText = view.findViewById(R.id.breeze_processing_text)
+            processingCancel = view.findViewById(R.id.breeze_processing_cancel)
 
             // Text input views
             textInput = view.findViewById(R.id.breeze_text_input)
@@ -290,6 +297,12 @@ class BreezeInputChoicePopup(
                     setState(State.PROCESSING)
                     onTextSubmit(text)
                 }
+            }
+
+            // Processing cancel button
+            view.findViewById<View>(R.id.breeze_processing_cancel)?.setOnClickListener {
+                Log.d(TAG, "Cancel button clicked - dismissing popup")
+                dismiss()
             }
         }
     }
@@ -380,7 +393,10 @@ class BreezeInputChoicePopup(
             State.RECORDING -> startPulseAnimation()
             State.PROCESSING -> {
                 stopPulseAnimation()
-                processingCheck?.alpha = 0f
+                // Reset processing state: show cancel button, hide check icon
+                processingCancel?.visibility = View.VISIBLE
+                processingCheck?.visibility = View.GONE
+                processingText?.text = "Charles is working..."
             }
             else -> stopPulseAnimation()
         }
@@ -475,19 +491,15 @@ class BreezeInputChoicePopup(
     fun showAsrComplete(onComplete: () -> Unit) {
         processingText?.text = "Processing complete!"
 
-        // Animate check mark from transparent to solid green
-        processingCheck?.let { check ->
-            ObjectAnimator.ofFloat(check, "alpha", 0f, 1f).apply {
-                duration = 300
-                start()
-            }
-        }
+        // Hide cancel button and show check icon
+        processingCancel?.visibility = View.GONE
+        processingCheck?.visibility = View.VISIBLE
 
-        // Dismiss after 2 seconds
+        // Dismiss after short delay and transition to floating window
         handler.postDelayed({
             dismiss()
             onComplete()
-        }, 2000)
+        }, 1000)
     }
 
     /**

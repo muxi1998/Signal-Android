@@ -15,6 +15,7 @@ import com.mtkresearch.breeze.ui.BreezeFloatingWindow
 import com.mtkresearch.breeze.ui.BreezeInputChoicePopup
 import com.mtkresearch.breeze.edgeai.EdgeAI
 import com.mtkresearch.breeze.edgeai.usecases.HistoryInJSON
+import com.mtkresearch.breeze.edgeai.usecases.ChatUseCase
 import com.mtkresearch.breeze.edgeai.usecases.TextRewriteUseCase
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onCompletion
@@ -252,6 +253,16 @@ class BreezeManager private constructor(
   }
 
   /**
+   * Set the current thread/conversation ID.
+   * Must be called by ConversationFragment when thread changes.
+   * Required for HistoryInJSON feature to fetch conversation history.
+   */
+  fun setCurrentThreadId(threadId: Long?) {
+    currentThreadId = threadId
+    Log.d(TAG, "Current thread ID set: $threadId")
+  }
+
+  /**
    * Called when voice input (ASR) completes with transcribed text.
    * Shows the floating window with the transcribed text.
    */
@@ -300,7 +311,30 @@ class BreezeManager private constructor(
         Log.w(TAG, "No text injection callback available! Cannot inject text: '$draftText'")
       }
 
+      // Hide keyboard when accepting draft
+      hideKeyboard()
+
       hideFloatingWindow()
+    }
+  }
+
+  private fun hideKeyboard() {
+    try {
+      currentActivity?.let { activity ->
+        val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+        val currentFocus = activity.currentFocus
+        if (currentFocus != null) {
+          imm?.hideSoftInputFromWindow(currentFocus.windowToken, 0)
+        } else {
+          // Hide from the activity's window decor view
+          activity.window?.decorView?.let { view ->
+            imm?.hideSoftInputFromWindow(view.windowToken, 0)
+          }
+        }
+        Log.d(TAG, "Keyboard hidden")
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Error hiding keyboard", e)
     }
   }
 
@@ -314,24 +348,84 @@ class BreezeManager private constructor(
   private fun onToneChipTapped(toneType: ToneType) {
     scope.launch {
       currentSession?.let { session ->
+        // Get current draft text from floating window (tone chips modify the draft)
+        val currentDraft = floatingWindow?.getCurrentDraft() ?: ""
+        val textToModify = if (currentDraft.isNotBlank()) currentDraft else originalInputText
+
+        Log.d(TAG, "Tone chip tapped: $toneType, modifying text: '$textToModify'")
+
+        // Add user action to conversation (showing what user asked Charles to do)
+        val userAction = when (toneType) {
+          ToneType.FORMAL -> "Make it more formal"
+          ToneType.FRIENDLY -> "Make it friendlier"
+          ToneType.CLARITY -> "Improve clarity"
+          ToneType.SHORTEN -> "Make it shorter"
+          ToneType.EXPAND -> "Expand with more detail"
+          ToneType.HISTORY_JSON -> "Format with conversation history"
+        }
+        floatingWindow?.addToConversation(isUser = true, userAction)
+
+        // Special handling for HISTORY_JSON - no AI involved
+        if (toneType == ToneType.HISTORY_JSON) {
+          handleHistoryInJsonTone(textToModify)
+          return@launch
+        }
+
         // Move current to previous
         previousSummary = session.currentSuggestion
-
-        // Get fresh input text from callback, fallback to original if not available
-        val currentInputText = textRetrievalCallback?.invoke() ?: originalInputText
-        Log.d(TAG, "Tone chip tapped: $toneType, using text: '$currentInputText'")
 
         // Set streaming callback to update window in real-time
         session.setStreamingCallback { partialText ->
           floatingWindow?.updateStreamingText(partialText)
         }
 
-        // Generate new suggestion with tone using streaming chat
-        session.applyTone(toneType, currentInputText)
+        // Set completion callback to update conversation when streaming finishes
+        session.setCompletionCallback { finalText ->
+          Log.d(TAG, "Tone transformation completed: ${finalText.take(50)}...")
+          // Update session and add Charles response to conversation with TONE type
+          floatingWindow?.updateSession(session, BreezeFloatingWindow.ResponseType.TONE)
+        }
 
-        // Final update after streaming completes
-        floatingWindow?.updateSession(session)
+        // Generate new suggestion with tone using streaming chat
+        session.applyTone(toneType, textToModify)
       }
+    }
+  }
+
+  /**
+   * Handle HistoryInJson tone - directly call the usecase without AI.
+   * This transforms the text by including conversation history in JSON format.
+   */
+  private fun handleHistoryInJsonTone(inputText: String) {
+    val threadId = currentThreadId
+    if (threadId == null) {
+      Log.w(TAG, "No thread ID available for HistoryInJson")
+      floatingWindow?.updateDraft("Error: No conversation context available")
+      floatingWindow?.addCharlesResponse("I need a conversation context to format history in JSON.", BreezeFloatingWindow.ResponseType.SYSTEM)
+      return
+    }
+
+    try {
+      // Call HistoryInJSON usecase directly - no AI
+      val jsonOutput = HistoryInJSON.execute(
+        HistoryInJSON.Request(
+          inputText = inputText,
+          threadId = threadId,
+          historyLimit = 10
+        )
+      )
+
+      Log.d(TAG, "HistoryInJSON result: $jsonOutput")
+
+      // Update draft with JSON output
+      floatingWindow?.updateDraft(jsonOutput)
+
+      // Add to conversation history with HISTORY response type
+      floatingWindow?.addCharlesResponse("Here's your message with conversation history in JSON format.", BreezeFloatingWindow.ResponseType.HISTORY)
+    } catch (e: Exception) {
+      Log.e(TAG, "Error executing HistoryInJSON", e)
+      floatingWindow?.updateDraft("Error: ${e.message}")
+      floatingWindow?.addCharlesResponse("Sorry, I encountered an error formatting the history.", BreezeFloatingWindow.ResponseType.SYSTEM)
     }
   }
 
@@ -390,13 +484,17 @@ class BreezeManager private constructor(
             inputChoicePopup?.updateProcessingText("Charles: $partialText")
           }
 
-          // Apply default tone (or could be a "chat" tone)
-          session.applyTone(ToneType.CLARITY, text)
-        }
+          // Set completion callback to show floating window when streaming finishes
+          session.setCompletionCallback { finalText ->
+            Log.d(TAG, "Text input processing completed: ${finalText.take(50)}...")
+            // Show completion and transition to floating window
+            inputChoicePopup?.showAsrComplete {
+              showFloatingWindowWithSession(anchorBounds)
+            }
+          }
 
-        // Show completion and transition to floating window
-        inputChoicePopup?.showAsrComplete {
-          showFloatingWindowWithSession(anchorBounds)
+          // Use chat() for conversational interactions (not tone transformation)
+          session.chat(userMessage = text)
         }
       } catch (e: Exception) {
         Log.e(TAG, "Error processing text input", e)
@@ -434,16 +532,21 @@ class BreezeManager private constructor(
           session.setStreamingCallback { partialText ->
             inputChoicePopup?.updateProcessingText("Charles: $partialText")
           }
-          session.applyTone(ToneType.CLARITY, transcribedText)
-        }
 
-        // Show completion and transition to floating window
-        inputChoicePopup?.showAsrComplete {
-          showFloatingWindowWithSession(anchorBounds)
-        }
+          // Set completion callback to show floating window when streaming finishes
+          session.setCompletionCallback { finalText ->
+            Log.d(TAG, "Voice input processing completed: ${finalText.take(50)}...")
+            // Show completion and transition to floating window
+            inputChoicePopup?.showAsrComplete {
+              showFloatingWindowWithSession(anchorBounds)
+            }
+            // Clean up audio file after processing
+            audioFile.delete()
+          }
 
-        // Clean up audio file
-        audioFile.delete()
+          // Use chat() for conversational interactions (not tone transformation)
+          session.chat(userMessage = transcribedText)
+        }
       } catch (e: Exception) {
         Log.e(TAG, "Error processing recording", e)
         inputChoicePopup?.dismiss()
@@ -482,13 +585,20 @@ class BreezeManager private constructor(
 
           floatingWindow?.show()
 
-          // Add initial conversation context
+          // Add initial conversation context with appropriate response type
+          // Determine if input was from voice (ASR) or text
+          val isVoiceInput = pendingVoiceInputBounds != null
           floatingWindow?.addToConversation(isUser = true, originalInputText)
           if (session.currentSuggestion.isNotBlank()) {
-            floatingWindow?.addToConversation(isUser = false, "Here's my suggestion:")
+            val responseType = if (isVoiceInput) {
+              BreezeFloatingWindow.ResponseType.ASR
+            } else {
+              BreezeFloatingWindow.ResponseType.LLM
+            }
+            floatingWindow?.addCharlesResponse("Here's my suggestion based on your input.", responseType)
           }
 
-          Log.d(TAG, "Floating window shown after input choice")
+          Log.d(TAG, "Floating window shown after input choice (voice=$isVoiceInput)")
         }
       } catch (e: Exception) {
         Log.e(TAG, "Error showing floating window", e)
@@ -499,23 +609,43 @@ class BreezeManager private constructor(
   /**
    * Handle chat message from the floating window.
    * User is continuing the conversation with Charles.
+   *
+   * The draft section holds the current most suitable draft.
+   * When user discusses with Charles, the full conversation history is passed
+   * along with the current draft and user's newest message, so LLM has full context.
    */
   private fun onChatMessageReceived(message: String, anchorBounds: Rect) {
     scope.launch {
       Log.d(TAG, "Chat message received: $message")
 
       currentSession?.let { session ->
+        // Get the current draft from the floating window
+        val currentDraft = floatingWindow?.getCurrentDraft() ?: ""
+
+        // Get conversation history for context
+        val conversationHistory = floatingWindow?.getConversationHistoryForLLM() ?: ""
+
         // Set streaming callback to update the draft field
         session.setStreamingCallback { partialText ->
           floatingWindow?.updateStreamingText(partialText)
         }
 
-        // Use the chat message as the new input for tone generation
-        // This allows user to refine their request
-        session.applyTone(ToneType.CLARITY, message)
+        // Set completion callback to update conversation when streaming finishes
+        session.setCompletionCallback { finalText ->
+          Log.d(TAG, "Chat response completed: ${finalText.take(50)}...")
+          // Update session and add Charles response to conversation with LLM type
+          floatingWindow?.updateSession(session, BreezeFloatingWindow.ResponseType.LLM)
+        }
 
-        // Add Charles's response to conversation when streaming completes
-        // This is handled via updateSession callback
+        Log.d(TAG, "Chat with Charles: message='$message', hasHistory=${conversationHistory.isNotBlank()}, hasDraft=${currentDraft.isNotBlank()}")
+
+        // Use chat() for conversational follow-up (not tone transformation)
+        // Pass context separately - ChatUseCase will format appropriately
+        session.chat(
+          userMessage = message,
+          conversationHistory = conversationHistory.takeIf { it.isNotBlank() },
+          currentDraft = currentDraft.takeIf { it.isNotBlank() }
+        )
       }
     }
   }
@@ -560,6 +690,7 @@ class AISession private constructor(
   }
   
   private val textRewriteUseCase = TextRewriteUseCase()
+  private val chatUseCase = ChatUseCase()
   private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
   var currentSuggestion: String = ""
@@ -572,6 +703,7 @@ class AISession private constructor(
     private set
   
   private var streamingCallback: ((String) -> Unit)? = null
+  private var completionCallback: ((String) -> Unit)? = null
 
   private fun generateInitialSuggestion() {
     currentSuggestion = if (originalText.isBlank()) {
@@ -586,6 +718,14 @@ class AISession private constructor(
    */
   fun setStreamingCallback(callback: (String) -> Unit) {
     streamingCallback = callback
+  }
+
+  /**
+   * Set callback for when streaming completes.
+   * Called with the final text after streaming is done.
+   */
+  fun setCompletionCallback(callback: (String) -> Unit) {
+    completionCallback = callback
   }
 
   /**
@@ -626,6 +766,8 @@ class AISession private constructor(
             isStreaming = false
             if (error == null) {
               Log.d(TAG, "Streaming completed. Final text: '$currentSuggestion'")
+              // Notify completion callback with final text
+              completionCallback?.invoke(currentSuggestion)
             }
           }
           .catch { e ->
@@ -643,11 +785,66 @@ class AISession private constructor(
     }
   }
 
+  /**
+   * Chat with Charles (conversational interaction).
+   * This is different from applyTone - it's for actual dialogue, not tone transformations.
+   *
+   * @param userMessage The user's message/request
+   * @param conversationHistory Optional history of the Charles conversation
+   * @param currentDraft Optional current draft being worked on
+   */
+  fun chat(userMessage: String, conversationHistory: String? = null, currentDraft: String? = null) {
+    // Reset current suggestion for streaming
+    currentSuggestion = ""
+    isStreaming = true
+
+    Log.d(TAG, "Starting chat with Charles: '$userMessage'")
+
+    scope.launch {
+      try {
+        chatUseCase.execute(
+          userMessage = userMessage,
+          conversationHistory = conversationHistory,
+          currentDraft = currentDraft
+        )
+          .onStart {
+            Log.d(TAG, "Chat streaming started")
+            currentSuggestion = "" // Clear for accumulation
+          }
+          .onEach { token ->
+            // Accumulate tokens
+            currentSuggestion += token
+            // Notify callback for real-time UI update
+            streamingCallback?.invoke(currentSuggestion)
+          }
+          .onCompletion { error ->
+            isStreaming = false
+            if (error == null) {
+              Log.d(TAG, "Chat completed. Final text: '$currentSuggestion'")
+              // Notify completion callback with final text
+              completionCallback?.invoke(currentSuggestion)
+            }
+          }
+          .catch { e ->
+            Log.e(TAG, "Error during chat streaming", e)
+            currentSuggestion = "Error: ${e.message}"
+            streamingCallback?.invoke(currentSuggestion)
+          }
+          .collect { } // Terminal operator - collection handled by onEach
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to chat", e)
+        isStreaming = false
+        currentSuggestion = "Error: ${e.message}"
+        streamingCallback?.invoke(currentSuggestion)
+      }
+    }
+  }
 
 }
 
 /**
  * Tone types from the enhanced spec.
+ * These are transformation tools used within the chat context.
  */
 enum class ToneType {
   HISTORY_JSON, FORMAL, FRIENDLY, CLARITY, SHORTEN, EXPAND

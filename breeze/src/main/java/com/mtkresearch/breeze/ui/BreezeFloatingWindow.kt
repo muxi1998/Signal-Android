@@ -68,8 +68,19 @@ class BreezeFloatingWindow private constructor(
         }
     }
 
+    // Response types for conversation messages with emojis
+    enum class ResponseType(val emoji: String, val label: String) {
+        USER("👤", "You"),              // User message
+        LLM("🤖", "Charles"),           // LLM response
+        ASR("🎤", "Charles"),           // Speech-to-text result
+        TTS("🔊", "Charles"),           // Text-to-speech result
+        TONE("✨", "Charles"),          // Tone transformation result
+        HISTORY("📋", "Charles"),       // History in JSON result
+        SYSTEM("ℹ️", "Charles")         // System message
+    }
+
     // Conversation history
-    data class ChatMessage(val isUser: Boolean, val text: String)
+    data class ChatMessage(val isUser: Boolean, val text: String, val responseType: ResponseType = ResponseType.USER)
     private val conversationHistory = mutableListOf<ChatMessage>()
 
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -89,6 +100,12 @@ class BreezeFloatingWindow private constructor(
     private var initialTouchX = 0f
     private var initialTouchY = 0f
 
+    // Resize handling
+    private var initialWidth = 0
+    private var initialHeight = 0
+    private var minWidth = 300
+    private var minHeight = 400
+
     fun show() {
         remove() // Ensure clean state
 
@@ -96,8 +113,10 @@ class BreezeFloatingWindow private constructor(
         windowView = inflater.inflate(R.layout.breeze_floating_window, null)
 
         setupViews()
+        setupCloseButton()
         setupToneChips()
         setupDragHandle()
+        setupResizeHandle()
         setupDraftField()
         setupChatInput()
 
@@ -125,10 +144,19 @@ class BreezeFloatingWindow private constructor(
         }
     }
 
+    private fun setupCloseButton() {
+        windowView?.findViewById<ImageButton>(R.id.breeze_close_button)?.setOnClickListener {
+            Log.d(TAG, "Close button clicked - dismissing window")
+            onDismiss()
+            remove()
+        }
+    }
+
     private fun setupToneChips() {
         windowView?.let { view ->
-            view.findViewById<TextView>(R.id.breeze_tone_casual)?.setOnClickListener {
-                onToneChange(ToneType.CASUAL)
+            // ToneType enum values: HISTORY_JSON, FORMAL, FRIENDLY, CLARITY, SHORTEN, EXPAND
+            view.findViewById<TextView>(R.id.breeze_tone_history)?.setOnClickListener {
+                onToneChange(ToneType.HISTORY_JSON)
                 highlightToneChip(it as TextView)
             }
             view.findViewById<TextView>(R.id.breeze_tone_formal)?.setOnClickListener {
@@ -139,12 +167,16 @@ class BreezeFloatingWindow private constructor(
                 onToneChange(ToneType.FRIENDLY)
                 highlightToneChip(it as TextView)
             }
-            view.findViewById<TextView>(R.id.breeze_tone_concise)?.setOnClickListener {
+            view.findViewById<TextView>(R.id.breeze_tone_clarity)?.setOnClickListener {
                 onToneChange(ToneType.CLARITY)
                 highlightToneChip(it as TextView)
             }
-            view.findViewById<TextView>(R.id.breeze_tone_professional)?.setOnClickListener {
-                onToneChange(ToneType.PROFESSIONAL)
+            view.findViewById<TextView>(R.id.breeze_tone_shorten)?.setOnClickListener {
+                onToneChange(ToneType.SHORTEN)
+                highlightToneChip(it as TextView)
+            }
+            view.findViewById<TextView>(R.id.breeze_tone_expand)?.setOnClickListener {
+                onToneChange(ToneType.EXPAND)
                 highlightToneChip(it as TextView)
             }
         }
@@ -154,11 +186,12 @@ class BreezeFloatingWindow private constructor(
         // Reset all chips
         windowView?.let { view ->
             listOf(
-                R.id.breeze_tone_casual,
+                R.id.breeze_tone_history,
                 R.id.breeze_tone_formal,
                 R.id.breeze_tone_friendly,
-                R.id.breeze_tone_concise,
-                R.id.breeze_tone_professional
+                R.id.breeze_tone_clarity,
+                R.id.breeze_tone_shorten,
+                R.id.breeze_tone_expand
             ).forEach { id ->
                 view.findViewById<TextView>(id)?.setBackgroundResource(R.drawable.breeze_tone_chip_background)
             }
@@ -196,10 +229,90 @@ class BreezeFloatingWindow private constructor(
         }
     }
 
+    private fun setupResizeHandle() {
+        // Setup all 4 corner resize handles
+        setupCornerResize(R.id.breeze_resize_top_left, ResizeCorner.TOP_LEFT)
+        setupCornerResize(R.id.breeze_resize_top_right, ResizeCorner.TOP_RIGHT)
+        setupCornerResize(R.id.breeze_resize_bottom_left, ResizeCorner.BOTTOM_LEFT)
+        setupCornerResize(R.id.breeze_resize_bottom_right, ResizeCorner.BOTTOM_RIGHT)
+    }
+
+    private enum class ResizeCorner {
+        TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT
+    }
+
+    private fun setupCornerResize(viewId: Int, corner: ResizeCorner) {
+        windowView?.findViewById<View>(viewId)?.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = layoutParams?.x ?: 0
+                    initialY = layoutParams?.y ?: 0
+                    initialWidth = layoutParams?.width ?: 0
+                    initialHeight = layoutParams?.height ?: 0
+                    initialTouchX = event.rawX
+                    initialTouchY = event.rawY
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    layoutParams?.let { params ->
+                        val deltaX = (event.rawX - initialTouchX).toInt()
+                        val deltaY = (event.rawY - initialTouchY).toInt()
+
+                        when (corner) {
+                            ResizeCorner.TOP_LEFT -> {
+                                val newWidth = initialWidth - deltaX
+                                val newHeight = initialHeight - deltaY
+                                if (newWidth >= minWidth) {
+                                    params.width = newWidth
+                                    params.x = initialX + deltaX
+                                }
+                                if (newHeight >= minHeight) {
+                                    params.height = newHeight
+                                    params.y = initialY + deltaY
+                                }
+                            }
+                            ResizeCorner.TOP_RIGHT -> {
+                                val newWidth = initialWidth + deltaX
+                                val newHeight = initialHeight - deltaY
+                                params.width = maxOf(minWidth, newWidth)
+                                if (newHeight >= minHeight) {
+                                    params.height = newHeight
+                                    params.y = initialY + deltaY
+                                }
+                            }
+                            ResizeCorner.BOTTOM_LEFT -> {
+                                val newWidth = initialWidth - deltaX
+                                val newHeight = initialHeight + deltaY
+                                if (newWidth >= minWidth) {
+                                    params.width = newWidth
+                                    params.x = initialX + deltaX
+                                }
+                                params.height = maxOf(minHeight, newHeight)
+                            }
+                            ResizeCorner.BOTTOM_RIGHT -> {
+                                params.width = maxOf(minWidth, initialWidth + deltaX)
+                                params.height = maxOf(minHeight, initialHeight + deltaY)
+                            }
+                        }
+                        windowManager.updateViewLayout(windowView, params)
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    layoutParams?.let { params ->
+                        onResize(params.x, params.y, params.width, params.height)
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
     private fun setupDraftField() {
         windowView?.let { view ->
-            // Submit button
-            view.findViewById<ImageButton>(R.id.breeze_draft_submit)?.setOnClickListener {
+            // Accept button
+            view.findViewById<TextView>(R.id.breeze_draft_submit)?.setOnClickListener {
                 val draft = draftField?.text?.toString() ?: ""
                 if (draft.isNotBlank()) {
                     Log.d(TAG, "Draft submitted: $draft")
@@ -251,17 +364,21 @@ class BreezeFloatingWindow private constructor(
 
     /**
      * Add a message to the conversation history.
+     * @param isUser True if this is a user message
+     * @param text The message text
+     * @param responseType The type of response (for Charles messages, determines emoji)
      */
-    fun addToConversation(isUser: Boolean, text: String) {
-        conversationHistory.add(ChatMessage(isUser, text))
+    fun addToConversation(isUser: Boolean, text: String, responseType: ResponseType = if (isUser) ResponseType.USER else ResponseType.LLM) {
+        conversationHistory.add(ChatMessage(isUser, text, responseType))
 
         conversationContainer?.let { container ->
             val messageView = TextView(context).apply {
-                val prefix = if (isUser) "You: " else "Charles: "
+                // Format: emoji + label + text
+                val prefix = "${responseType.emoji} ${responseType.label}: "
                 this.text = "$prefix$text"
                 textSize = 13f
                 setTextColor(if (isUser) 0xFF333333.toInt() else 0xFF6B4EFF.toInt())
-                setPadding(0, 4, 0, 4)
+                setPadding(0, 8, 0, 8)
             }
             container.addView(messageView)
 
@@ -273,10 +390,36 @@ class BreezeFloatingWindow private constructor(
     }
 
     /**
+     * Add a Charles response to conversation with specific response type.
+     * Convenience method for adding AI responses.
+     */
+    fun addCharlesResponse(text: String, responseType: ResponseType) {
+        addToConversation(isUser = false, text = text, responseType = responseType)
+    }
+
+    /**
      * Update the draft field with new text.
      */
     fun updateDraft(text: String) {
         draftField?.setText(text)
+    }
+
+    /**
+     * Get current draft text from the draft field.
+     */
+    fun getCurrentDraft(): String {
+        return draftField?.text?.toString() ?: ""
+    }
+
+    /**
+     * Get conversation history as a formatted string for LLM context.
+     */
+    fun getConversationHistoryForLLM(): String {
+        if (conversationHistory.isEmpty()) return ""
+        return conversationHistory.joinToString("\n") { msg ->
+            val role = if (msg.isUser) "User" else "Charles"
+            "$role: ${msg.text}"
+        }
     }
 
     /**
@@ -290,14 +433,22 @@ class BreezeFloatingWindow private constructor(
 
     /**
      * Update session and refresh UI.
+     * @param newSession The updated AI session
+     * @param responseType The type of AI response (LLM, TONE, etc.)
      */
-    fun updateSession(newSession: AISession) {
+    fun updateSession(newSession: AISession, responseType: ResponseType = ResponseType.LLM) {
         session = newSession
         updateDraft(session.currentSuggestion)
 
-        // Add Charles's response to conversation
+        // Add Charles's response to conversation with appropriate emoji
         if (session.currentSuggestion.isNotBlank()) {
-            addToConversation(isUser = false, "Here's an updated draft.")
+            val message = when (responseType) {
+                ResponseType.TONE -> "I've applied the tone transformation."
+                ResponseType.HISTORY -> "Here's your message with conversation history."
+                ResponseType.ASR -> "I've transcribed your voice input."
+                else -> "Here's an updated draft."
+            }
+            addCharlesResponse(message, responseType)
         }
     }
 
@@ -306,12 +457,12 @@ class BreezeFloatingWindow private constructor(
         val screenWidth = displayMetrics.widthPixels
         val screenHeight = displayMetrics.heightPixels
 
-        // Use saved position or calculate default
-        val width = (screenWidth * 0.9).toInt()
-        val height = WindowManager.LayoutParams.WRAP_CONTENT
+        // Use saved settings or calculate default
+        val width = savedSettings.width.takeIf { it > 0 } ?: (screenWidth * 0.9).toInt()
+        val height = savedSettings.height.takeIf { it > 0 } ?: (screenHeight * 0.5).toInt()
 
         val x = savedSettings.x.takeIf { it != 0 } ?: ((screenWidth - width) / 2)
-        val y = savedSettings.y.takeIf { it != 0 } ?: (screenHeight / 3)
+        val y = savedSettings.y.takeIf { it != 0 } ?: (screenHeight / 4)
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY

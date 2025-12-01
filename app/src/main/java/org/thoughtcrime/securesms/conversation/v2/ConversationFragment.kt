@@ -1372,6 +1372,9 @@ class ConversationFragment :
       // Set current Activity for popup display
       breezeUiHook?.setCurrentActivity(requireActivity())
 
+      // Set current thread ID for HistoryInJSON feature
+      breezeUiHook?.setCurrentThreadId(args.threadId)
+
       Log.d("ConversationFragment", "Checking Breeze AI permissions...")
 
       // Check if we have overlay permissions
