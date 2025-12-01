@@ -642,9 +642,9 @@ private class BreezeWindowView(
   }
 
   private fun updateContent() {
-    // Previous Summary
+    // Draft (Charles's suggestion - user can continue discussing or modify)
     if (session.previousSummary.isNotBlank()) {
-      previousSummaryView.text = "Previous: ${session.previousSummary}"
+      previousSummaryView.text = "Draft: ${session.previousSummary}"
       previousSummaryView.visibility = View.VISIBLE
     } else {
       previousSummaryView.visibility = View.GONE

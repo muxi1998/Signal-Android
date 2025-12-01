@@ -372,18 +372,16 @@ class BreezeManager private constructor(
 
   /**
    * Handle text input submission from the popup.
-   * Calls streaming chat and shows the result in floating window.
+   * Calls streaming chat and shows the result in floating window as "Draft".
+   * Does NOT inject to root input field - user is still discussing with Charles.
    */
   private fun handleTextInputSubmit(text: String, anchorBounds: Rect) {
     scope.launch {
       try {
-        // Inject text into compose field first
-        textInjectionCallback?.invoke(text)
-
-        // Store original text
+        // Store original text (what user asked Charles)
         originalInputText = text
 
-        // Create AI session
+        // Create AI session - the response will be shown as "Draft" for further discussion
         currentSession = AISession.create(text, previousSummary, currentThreadId)
 
         // Start streaming chat
@@ -396,7 +394,7 @@ class BreezeManager private constructor(
           session.applyTone(ToneType.CLARITY, text)
         }
 
-        // Show ASR complete and transition to floating window
+        // Show completion and transition to floating window
         inputChoicePopup?.showAsrComplete {
           showFloatingWindowWithSession(anchorBounds)
         }
@@ -409,6 +407,7 @@ class BreezeManager private constructor(
 
   /**
    * Handle recording completion. Process with ASR then LLM.
+   * Does NOT inject to root input field - user is still discussing with Charles.
    */
   private fun handleRecordingComplete(audioFile: java.io.File, anchorBounds: Rect) {
     scope.launch {
@@ -425,11 +424,10 @@ class BreezeManager private constructor(
         Log.d(TAG, "ASR complete: $transcribedText")
         inputChoicePopup?.updateProcessingText("Processing with AI...")
 
-        // Inject transcribed text
-        textInjectionCallback?.invoke(transcribedText)
+        // Store what user said (transcribed)
         originalInputText = transcribedText
 
-        // Create AI session and process
+        // Create AI session - response will be shown as "Draft" for further discussion
         currentSession = AISession.create(transcribedText, previousSummary, currentThreadId)
 
         currentSession?.let { session ->
@@ -439,7 +437,7 @@ class BreezeManager private constructor(
           session.applyTone(ToneType.CLARITY, transcribedText)
         }
 
-        // Show completion and transition
+        // Show completion and transition to floating window
         inputChoicePopup?.showAsrComplete {
           showFloatingWindowWithSession(anchorBounds)
         }

@@ -100,25 +100,13 @@ class BreezeInputChoicePopup(
             return
         }
 
-        // Hide keyboard first to get stable positioning
-        hideKeyboardAndShow(rootView)
-    }
-
-    private fun hideKeyboardAndShow(rootView: View) {
+        // Hide keyboard naturally (no forced timing)
         val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        val currentFocus = activity.currentFocus
-
-        if (currentFocus != null && imm.isAcceptingText) {
-            // Keyboard is likely showing, hide it first
-            imm.hideSoftInputFromWindow(currentFocus.windowToken, 0)
-            // Wait for layout to settle before showing popup
-            handler.postDelayed({
-                showPopupAtPosition(rootView)
-            }, 200) // Small delay for keyboard animation
-        } else {
-            // Keyboard not showing, show popup immediately
-            showPopupAtPosition(rootView)
+        activity.currentFocus?.let { focus ->
+            imm.hideSoftInputFromWindow(focus.windowToken, 0)
         }
+
+        showPopupAtPosition(rootView)
     }
 
     private fun showPopupAtPosition(rootView: View) {
@@ -153,21 +141,20 @@ class BreezeInputChoicePopup(
             }
         }
 
-        // Get fresh anchor position after keyboard is hidden
+        // Get screen dimensions
         val screenWidth = activity.resources.displayMetrics.widthPixels
-        val screenHeight = activity.resources.displayMetrics.heightPixels
-        val padding = 16
+        val density = activity.resources.displayMetrics.density
+        val padding = (16 * density).toInt()
 
         // Center the popup horizontally, but keep within screen bounds
         var x = anchorBounds.centerX() - (popupWidth / 2)
         x = x.coerceIn(padding, screenWidth - popupWidth - padding)
 
-        // Position popup near bottom of screen (above where input panel would be)
-        // Use a fixed offset from bottom to avoid keyboard animation issues
-        val bottomOffset = 120 // dp from bottom
-        val y = screenHeight - bottomOffset - popupHeight
+        // Position popup just above the anchor (mic button location)
+        // The anchor bounds are updated at click time, so they reflect current position
+        val y = anchorBounds.top - popupHeight - (8 * density).toInt()
 
-        Log.d(TAG, "Showing popup: popupSize=${popupWidth}x${popupHeight}, position=($x, $y)")
+        Log.d(TAG, "Showing popup: anchor=$anchorBounds, popupSize=${popupWidth}x${popupHeight}, position=($x, $y)")
         popupWindow?.showAtLocation(rootView, Gravity.NO_GRAVITY, x, y)
 
         setState(State.CHOICE)
