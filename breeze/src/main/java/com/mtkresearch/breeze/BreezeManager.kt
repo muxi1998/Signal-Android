@@ -560,15 +560,16 @@ class AISession private constructor(
    * Apply tone transformation using streaming LLM chat.
    */
   fun applyTone(toneType: ToneType, currentInputText: String = originalText) {
-    // Move current to previous
-    if (currentSuggestion.isNotBlank()) {
+    // Move current to previous (but skip the initial placeholder)
+    val placeholder = "Tap a tone to rewrite your message."
+    if (currentSuggestion.isNotBlank() && currentSuggestion != placeholder) {
       previousSummary = currentSuggestion
     }
-    
+
     // Reset current suggestion for streaming
     currentSuggestion = ""
     isStreaming = true
-    
+
     Log.d(TAG, "Applying tone: $toneType to text: '$currentInputText'")
 
     // Use streaming chat for all tones
