@@ -143,10 +143,15 @@ class BreezeManager private constructor(
           onDismiss = ::onDismissSuggestion,
           onResize = windowPreferences::saveWindowSettings,
           onMove = windowPreferences::saveWindowPosition,
-          onToneChange = ::onToneChipTapped
+          onToneChange = ::onToneChipTapped,
+          onChatMessage = { message -> onChatMessageReceived(message, inputBounds) }
         )
 
         floatingWindow?.show()
+
+        // Add initial conversation context (user's text)
+        floatingWindow?.addToConversation(isUser = true, inputText)
+
         Log.d(TAG, "Floating window shown from contextual icon tap")
       } catch (e: Exception) {
         Log.e(TAG, "Error handling contextual icon tap", e)
@@ -274,32 +279,27 @@ class BreezeManager private constructor(
     }
   }
 
-  private fun onAcceptSuggestion() {
+  private fun onAcceptSuggestion(draftText: String) {
     scope.launch {
-      currentSession?.let { session ->
-        val textToInject = session.currentSuggestion
-        Log.d(TAG, "Accepting suggestion: '$textToInject'")
-        
-        // Inject text using callback to ConversationFragment
-        textInjectionCallback?.let { callback ->
-          Log.d(TAG, "Injecting text via callback...")
-          callback(textToInject)
-          
-          // IMPORTANT: Trigger rainbow animation ONLY after AI text injection
-          rainbowAnimationCallback?.let { rainbowCallback ->
-            Log.d(TAG, "Triggering rainbow animation after AI text injection")
-            rainbowCallback()
-          }
-          
-          // Move current suggestion to previous summary
-          previousSummary = session.currentSuggestion
-        } ?: run {
-          Log.w(TAG, "No text injection callback available! Cannot inject text: '$textToInject'")
+      Log.d(TAG, "Accepting draft: '$draftText'")
+
+      // Inject the draft text (possibly edited by user) to compose field
+      textInjectionCallback?.let { callback ->
+        Log.d(TAG, "Injecting draft via callback...")
+        callback(draftText)
+
+        // Trigger rainbow animation after AI text injection
+        rainbowAnimationCallback?.let { rainbowCallback ->
+          Log.d(TAG, "Triggering rainbow animation after AI text injection")
+          rainbowCallback()
         }
+
+        // Update previous summary
+        previousSummary = draftText
       } ?: run {
-        Log.w(TAG, "No current session available for text injection")
+        Log.w(TAG, "No text injection callback available! Cannot inject text: '$draftText'")
       }
-      
+
       hideFloatingWindow()
     }
   }
@@ -476,14 +476,46 @@ class BreezeManager private constructor(
             onDismiss = ::onDismissSuggestion,
             onResize = windowPreferences::saveWindowSettings,
             onMove = windowPreferences::saveWindowPosition,
-            onToneChange = ::onToneChipTapped
+            onToneChange = ::onToneChipTapped,
+            onChatMessage = { message -> onChatMessageReceived(message, anchorBounds) }
           )
 
           floatingWindow?.show()
+
+          // Add initial conversation context
+          floatingWindow?.addToConversation(isUser = true, originalInputText)
+          if (session.currentSuggestion.isNotBlank()) {
+            floatingWindow?.addToConversation(isUser = false, "Here's my suggestion:")
+          }
+
           Log.d(TAG, "Floating window shown after input choice")
         }
       } catch (e: Exception) {
         Log.e(TAG, "Error showing floating window", e)
+      }
+    }
+  }
+
+  /**
+   * Handle chat message from the floating window.
+   * User is continuing the conversation with Charles.
+   */
+  private fun onChatMessageReceived(message: String, anchorBounds: Rect) {
+    scope.launch {
+      Log.d(TAG, "Chat message received: $message")
+
+      currentSession?.let { session ->
+        // Set streaming callback to update the draft field
+        session.setStreamingCallback { partialText ->
+          floatingWindow?.updateStreamingText(partialText)
+        }
+
+        // Use the chat message as the new input for tone generation
+        // This allows user to refine their request
+        session.applyTone(ToneType.CLARITY, message)
+
+        // Add Charles's response to conversation when streaming completes
+        // This is handled via updateSession callback
       }
     }
   }

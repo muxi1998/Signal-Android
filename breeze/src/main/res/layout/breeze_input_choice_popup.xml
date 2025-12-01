@@ -65,7 +65,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Tell Charles..."
-            android:textColor="#6B4EFF"
+            android:textColor="#FF9800"
             android:textSize="14sp"
             android:textStyle="bold"
             android:layout_marginBottom="8dp" />
@@ -154,7 +154,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="Tap to stop"
-            android:textColor="#6B4EFF"
+            android:textColor="#FF9800"
             android:textSize="14sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -176,7 +176,7 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:indeterminate="true"
-            android:indeterminateTint="#6B4EFF" />
+            android:indeterminateTint="#FF9800" />
 
         <TextView
             android:id="@+id/breeze_processing_text"
