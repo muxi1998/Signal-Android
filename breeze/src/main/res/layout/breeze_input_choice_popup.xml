@@ -1,47 +1,192 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="8dp"
+    android:minWidth="280dp"
     android:background="@drawable/breeze_floating_window_background"
     android:elevation="8dp"
-    android:gravity="center_vertical">
+    android:padding="12dp">
 
-    <!-- Voice Input (Primary) -->
-    <FrameLayout
-        android:id="@+id/breeze_choice_voice"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
-        android:layout_marginEnd="12dp"
-        android:background="@drawable/breeze_tone_chip_background_selected"
-        android:clickable="true"
-        android:focusable="true">
+    <!-- State 1: Initial Choice (Voice vs Text) -->
+    <LinearLayout
+        android:id="@+id/breeze_state_choice"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:visibility="visible">
 
+        <!-- Voice Input (Primary) -->
+        <FrameLayout
+            android:id="@+id/breeze_choice_voice"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginEnd="12dp"
+            android:background="@drawable/breeze_tone_chip_background_selected"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center"
+                app:srcCompat="@drawable/breeze_rainbow_mic"
+                android:scaleType="fitCenter" />
+        </FrameLayout>
+
+        <!-- Text Input (Secondary) -->
+        <FrameLayout
+            android:id="@+id/breeze_choice_text"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/breeze_tone_chip_background"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                app:srcCompat="@drawable/ic_keyboard_24"
+                app:tint="#49454F" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- State 2: Text Input Mode -->
+    <LinearLayout
+        android:id="@+id/breeze_state_text_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="100dp"
+            android:maxHeight="200dp">
+
+            <EditText
+                android:id="@+id/breeze_text_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="80dp"
+                android:background="@drawable/breeze_tone_chip_background"
+                android:padding="12dp"
+                android:paddingEnd="48dp"
+                android:hint="Type your message..."
+                android:textColorHint="#80000000"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:gravity="top|start"
+                android:inputType="textMultiLine"
+                android:maxLines="6"
+                android:scrollbars="vertical" />
+
+            <!-- Magic Send Button (always bottom-right) -->
+            <ImageButton
+                android:id="@+id/breeze_text_send"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="4dp"
+                android:background="@drawable/breeze_tone_chip_background_selected"
+                android:scaleType="fitCenter"
+                android:padding="8dp"
+                app:srcCompat="@drawable/breeze_rainbow_pen"
+                android:contentDescription="Send" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- State 3: Recording Mode -->
+    <LinearLayout
+        android:id="@+id/breeze_state_recording"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone">
+
+        <!-- Recording Button with Animation -->
+        <FrameLayout
+            android:id="@+id/breeze_recording_button"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <!-- Pulsing background circle -->
+            <View
+                android:id="@+id/breeze_recording_pulse"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_gravity="center"
+                android:background="@drawable/breeze_recording_pulse_bg" />
+
+            <!-- Recording indicator circle -->
+            <View
+                android:id="@+id/breeze_recording_indicator"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:layout_gravity="center"
+                android:background="@drawable/breeze_recording_indicator_bg" />
+
+            <!-- Mic icon -->
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center"
+                app:srcCompat="@drawable/breeze_rainbow_mic"
+                android:scaleType="fitCenter" />
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Tap to stop"
+            android:textColor="#6B4EFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- State 4: Processing Mode (Charles is working...) -->
+    <LinearLayout
+        android:id="@+id/breeze_state_processing"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:visibility="gone"
+        android:padding="8dp">
+
+        <!-- Progress indicator -->
+        <ProgressBar
+            android:id="@+id/breeze_processing_progress"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:indeterminate="true"
+            android:indeterminateTint="#6B4EFF" />
+
+        <TextView
+            android:id="@+id/breeze_processing_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:text="Charles is working..."
+            android:textColor="#333333"
+            android:textSize="14sp" />
+
+        <!-- Check icon (initially transparent) -->
         <ImageView
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_gravity="center"
-            app:srcCompat="@drawable/breeze_rainbow_mic"
-            android:scaleType="fitCenter" />
-    </FrameLayout>
+            android:id="@+id/breeze_processing_check"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            app:srcCompat="@drawable/ic_check_24"
+            app:tint="#4CAF50"
+            android:alpha="0" />
+    </LinearLayout>
 
-    <!-- Text Input (Secondary) -->
-    <FrameLayout
-        android:id="@+id/breeze_choice_text"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:background="@drawable/breeze_tone_chip_background"
-        android:clickable="true"
-        android:focusable="true">
-
-        <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_gravity="center"
-            app:srcCompat="@drawable/ic_keyboard_24"
-            app:tint="#49454F" />
-    </FrameLayout>
-
-</LinearLayout>
+</FrameLayout>

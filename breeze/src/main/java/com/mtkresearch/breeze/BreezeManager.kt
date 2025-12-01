@@ -5,16 +5,14 @@ import android.app.Application
 import android.content.Context
 import android.graphics.Rect
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.ViewGroup
-import android.widget.PopupWindow
-import android.view.View
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.signal.core.util.logging.Log
 import com.mtkresearch.breeze.ui.BreezeFloatingWindow
+import com.mtkresearch.breeze.ui.BreezeInputChoicePopup
 import com.mtkresearch.breeze.edgeai.EdgeAI
 import com.mtkresearch.breeze.edgeai.usecases.HistoryInJSON
 import com.mtkresearch.breeze.edgeai.usecases.TextRewriteUseCase
@@ -49,7 +47,7 @@ class BreezeManager private constructor(
   private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
   private val windowPreferences = WindowPreferences(context)
   private var floatingWindow: BreezeFloatingWindow? = null
-  private var choicePopup: PopupWindow? = null
+  private var inputChoicePopup: BreezeInputChoicePopup? = null
 
   // AI state  
   private var currentSession: AISession? = null
@@ -106,7 +104,7 @@ class BreezeManager private constructor(
    */
   fun onContextualIconTapped(inputBounds: Rect, inputText: String) {
     // Prevent multiple panels
-    if (floatingWindow?.isShowing() == true || choicePopup?.isShowing == true) {
+    if (floatingWindow?.isShowing() == true || inputChoicePopup?.isShowing() == true) {
       return
     }
 
@@ -270,8 +268,8 @@ class BreezeManager private constructor(
   fun hideAll() {
     scope.launch {
       hideFloatingWindow()
-      choicePopup?.dismiss()
-      choicePopup = null
+      inputChoicePopup?.dismiss()
+      inputChoicePopup = null
       currentSession = null
     }
   }
@@ -349,57 +347,147 @@ class BreezeManager private constructor(
       return
     }
 
-    val rootView = activity.window.decorView.findViewById<View>(android.R.id.content)
-    if (rootView == null) {
-      Log.e(TAG, "Cannot show popup - no root view available")
-      return
-    }
+    // Store bounds for voice input completion
+    pendingVoiceInputBounds = anchorBounds
 
-    val layoutInflater = LayoutInflater.from(activity)
-    val popupView = layoutInflater.inflate(com.mtkresearch.breeze.R.layout.breeze_input_choice_popup, null)
+    inputChoicePopup = BreezeInputChoicePopup(
+      activity = activity,
+      anchorBounds = anchorBounds,
+      onTextSubmit = { text ->
+        Log.d(TAG, "Text submitted from popup: $text")
+        handleTextInputSubmit(text, anchorBounds)
+      },
+      onRecordingComplete = { audioFile ->
+        Log.d(TAG, "Recording complete: ${audioFile.absolutePath}")
+        handleRecordingComplete(audioFile, anchorBounds)
+      },
+      onDismiss = {
+        Log.d(TAG, "Input choice popup dismissed")
+        inputChoicePopup = null
+      }
+    )
 
-    choicePopup = PopupWindow(
-      popupView,
-      ViewGroup.LayoutParams.WRAP_CONTENT,
-      ViewGroup.LayoutParams.WRAP_CONTENT,
-      true
-    ).apply {
-      isOutsideTouchable = true
-      elevation = 10f
-      setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
-    }
+    inputChoicePopup?.show()
+  }
 
-    // Voice Choice (Primary) - Trigger ASR
-    popupView.findViewById<View>(com.mtkresearch.breeze.R.id.breeze_choice_voice).setOnClickListener {
-      Log.d(TAG, "Voice choice selected - triggering ASR")
-      choicePopup?.dismiss()
-      choicePopup = null
-      // Store bounds for when voice input completes
-      pendingVoiceInputBounds = anchorBounds
-      // Trigger voice input via callback to ConversationFragment
-      voiceInputCallback?.invoke() ?: run {
-        Log.w(TAG, "Voice input callback not set!")
+  /**
+   * Handle text input submission from the popup.
+   * Calls streaming chat and shows the result in floating window.
+   */
+  private fun handleTextInputSubmit(text: String, anchorBounds: Rect) {
+    scope.launch {
+      try {
+        // Inject text into compose field first
+        textInjectionCallback?.invoke(text)
+
+        // Store original text
+        originalInputText = text
+
+        // Create AI session
+        currentSession = AISession.create(text, previousSummary, currentThreadId)
+
+        // Start streaming chat
+        currentSession?.let { session ->
+          session.setStreamingCallback { partialText ->
+            inputChoicePopup?.updateProcessingText("Charles: $partialText")
+          }
+
+          // Apply default tone (or could be a "chat" tone)
+          session.applyTone(ToneType.CLARITY, text)
+        }
+
+        // Show ASR complete and transition to floating window
+        inputChoicePopup?.showAsrComplete {
+          showFloatingWindowWithSession(anchorBounds)
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Error processing text input", e)
+        inputChoicePopup?.dismiss()
       }
     }
+  }
 
-    // Text Choice (Secondary) - Focus input field
-    popupView.findViewById<View>(com.mtkresearch.breeze.R.id.breeze_choice_text).setOnClickListener {
-      Log.d(TAG, "Text choice selected - focusing input")
-      choicePopup?.dismiss()
-      choicePopup = null
-      // Focus the input field via callback to ConversationFragment
-      focusInputCallback?.invoke() ?: run {
-        Log.w(TAG, "Focus input callback not set!")
+  /**
+   * Handle recording completion. Process with ASR then LLM.
+   */
+  private fun handleRecordingComplete(audioFile: java.io.File, anchorBounds: Rect) {
+    scope.launch {
+      try {
+        inputChoicePopup?.updateProcessingText("Transcribing audio...")
+
+        // TODO: Implement actual ASR using EdgeAI
+        // For now, simulate ASR completion after a delay
+        delay(2000)
+
+        // Simulated transcribed text (replace with actual ASR result)
+        val transcribedText = "This is a simulated transcription. Replace with actual ASR."
+
+        Log.d(TAG, "ASR complete: $transcribedText")
+        inputChoicePopup?.updateProcessingText("Processing with AI...")
+
+        // Inject transcribed text
+        textInjectionCallback?.invoke(transcribedText)
+        originalInputText = transcribedText
+
+        // Create AI session and process
+        currentSession = AISession.create(transcribedText, previousSummary, currentThreadId)
+
+        currentSession?.let { session ->
+          session.setStreamingCallback { partialText ->
+            inputChoicePopup?.updateProcessingText("Charles: $partialText")
+          }
+          session.applyTone(ToneType.CLARITY, transcribedText)
+        }
+
+        // Show completion and transition
+        inputChoicePopup?.showAsrComplete {
+          showFloatingWindowWithSession(anchorBounds)
+        }
+
+        // Clean up audio file
+        audioFile.delete()
+      } catch (e: Exception) {
+        Log.e(TAG, "Error processing recording", e)
+        inputChoicePopup?.dismiss()
       }
     }
+  }
 
-    // Calculate position to show above the anchor (centered)
-    val popupWidth = 120 // Approximate width of popup
-    val x = anchorBounds.centerX() - (popupWidth / 2)
-    val y = anchorBounds.top - 100 // Height offset above the input field
+  /**
+   * Show the floating window with the current session.
+   */
+  private fun showFloatingWindowWithSession(anchorBounds: Rect) {
+    scope.launch {
+      try {
+        currentSession?.let { session ->
+          var windowSettings = windowPreferences.getWindowSettings()
 
-    Log.d(TAG, "Showing input choice popup at x=$x, y=$y")
-    choicePopup?.showAtLocation(rootView, android.view.Gravity.NO_GRAVITY, x, y)
+          val displayMetrics = context.resources.displayMetrics
+          if (windowSettings.height > displayMetrics.heightPixels * 0.6 ||
+            windowSettings.width > displayMetrics.widthPixels) {
+            windowPreferences.clearPreferences()
+            windowSettings = windowPreferences.getWindowSettings()
+          }
+
+          floatingWindow = BreezeFloatingWindow.create(
+            context = context,
+            anchorBounds = anchorBounds,
+            savedSettings = windowSettings,
+            session = session,
+            onAccept = ::onAcceptSuggestion,
+            onDismiss = ::onDismissSuggestion,
+            onResize = windowPreferences::saveWindowSettings,
+            onMove = windowPreferences::saveWindowPosition,
+            onToneChange = ::onToneChipTapped
+          )
+
+          floatingWindow?.show()
+          Log.d(TAG, "Floating window shown after input choice")
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Error showing floating window", e)
+      }
+    }
   }
 
   fun cleanup() {
