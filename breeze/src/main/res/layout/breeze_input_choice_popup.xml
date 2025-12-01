@@ -3,7 +3,6 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:minWidth="280dp"
     android:background="@drawable/breeze_floating_window_background"
     android:elevation="8dp"
     android:padding="12dp">
@@ -14,7 +13,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
+        android:gravity="center"
         android:visibility="visible">
 
         <!-- Voice Input (Primary) -->
@@ -56,57 +55,55 @@
     <!-- State 2: Text Input Mode -->
     <LinearLayout
         android:id="@+id/breeze_state_text_input"
-        android:layout_width="match_parent"
+        android:layout_width="280dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:visibility="gone">
 
-        <FrameLayout
+        <EditText
+            android:id="@+id/breeze_text_input"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="100dp"
-            android:maxHeight="200dp">
+            android:minHeight="80dp"
+            android:background="@drawable/breeze_tone_chip_background"
+            android:padding="12dp"
+            android:paddingBottom="48dp"
+            android:hint="Type your message..."
+            android:textColorHint="#80000000"
+            android:textColor="#000000"
+            android:textSize="14sp"
+            android:gravity="top|start"
+            android:inputType="textMultiLine"
+            android:maxLines="6"
+            android:scrollbars="vertical" />
 
-            <EditText
-                android:id="@+id/breeze_text_input"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="80dp"
-                android:background="@drawable/breeze_tone_chip_background"
-                android:padding="12dp"
-                android:paddingEnd="48dp"
-                android:hint="Type your message..."
-                android:textColorHint="#80000000"
-                android:textColor="#000000"
-                android:textSize="14sp"
-                android:gravity="top|start"
-                android:inputType="textMultiLine"
-                android:maxLines="6"
-                android:scrollbars="vertical" />
-
-            <!-- Magic Send Button (always bottom-right) -->
-            <ImageButton
-                android:id="@+id/breeze_text_send"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_gravity="bottom|end"
-                android:layout_margin="4dp"
-                android:background="@drawable/breeze_tone_chip_background_selected"
-                android:scaleType="fitCenter"
-                android:padding="8dp"
-                app:srcCompat="@drawable/breeze_rainbow_pen"
-                android:contentDescription="Send" />
-        </FrameLayout>
+        <!-- Magic Send Button (bottom-right, overlapping EditText) -->
+        <ImageButton
+            android:id="@+id/breeze_text_send"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="end"
+            android:layout_marginTop="-44dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/breeze_tone_chip_background_selected"
+            android:scaleType="fitCenter"
+            android:padding="6dp"
+            app:srcCompat="@drawable/breeze_rainbow_pen"
+            android:contentDescription="Send" />
     </LinearLayout>
 
     <!-- State 3: Recording Mode -->
     <LinearLayout
         android:id="@+id/breeze_state_recording"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center"
-        android:visibility="gone">
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true"
+        android:minWidth="150dp"
+        android:padding="16dp">
 
         <!-- Recording Button with Animation -->
         <FrameLayout
@@ -154,12 +151,13 @@
     <!-- State 4: Processing Mode (Charles is working...) -->
     <LinearLayout
         android:id="@+id/breeze_state_processing"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:visibility="gone"
-        android:padding="8dp">
+        android:minWidth="220dp"
+        android:padding="12dp">
 
         <!-- Progress indicator -->
         <ProgressBar

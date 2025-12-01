@@ -1,10 +1,11 @@
 package com.mtkresearch.breeze.ui
 
+import android.Manifest
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
 import android.media.MediaRecorder
@@ -21,15 +22,14 @@ import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.PopupWindow
-import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.mtkresearch.breeze.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import org.signal.core.util.logging.Log
 import java.io.File
@@ -48,10 +48,6 @@ class BreezeInputChoicePopup(
     private val onRecordingComplete: (File) -> Unit,
     private val onDismiss: () -> Unit
 ) {
-    companion object {
-        private val TAG = Log.tag(BreezeInputChoicePopup::class.java)
-    }
-
     enum class State {
         CHOICE,
         TEXT_INPUT,
@@ -155,8 +151,12 @@ class BreezeInputChoicePopup(
             // Choice: Voice button
             view.findViewById<View>(R.id.breeze_choice_voice)?.setOnClickListener {
                 Log.d(TAG, "Voice selected")
-                setState(State.RECORDING)
-                startRecording()
+                if (checkRecordPermission()) {
+                    setState(State.RECORDING)
+                    startRecording()
+                } else {
+                    requestRecordPermission()
+                }
             }
 
             // Choice: Text button
@@ -166,10 +166,18 @@ class BreezeInputChoicePopup(
                 showKeyboard()
             }
 
-            // Recording button (tap to stop)
+            // Recording button (tap to stop) - set on the whole recording state container
             view.findViewById<View>(R.id.breeze_recording_button)?.setOnClickListener {
+                Log.d(TAG, "Recording button tapped, isRecording=$isRecording")
                 if (isRecording) {
-                    Log.d(TAG, "Stopping recording")
+                    stopRecording()
+                }
+            }
+
+            // Also set click listener on the entire recording state for easier tapping
+            stateRecording?.setOnClickListener {
+                Log.d(TAG, "Recording state tapped, isRecording=$isRecording")
+                if (isRecording) {
                     stopRecording()
                 }
             }
@@ -185,6 +193,28 @@ class BreezeInputChoicePopup(
                 }
             }
         }
+    }
+
+    private fun checkRecordPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            activity,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestRecordPermission() {
+        Log.d(TAG, "Requesting RECORD_AUDIO permission")
+        ActivityCompat.requestPermissions(
+            activity,
+            arrayOf(Manifest.permission.RECORD_AUDIO),
+            PERMISSION_REQUEST_CODE
+        )
+        Toast.makeText(activity, "Please grant microphone permission", Toast.LENGTH_SHORT).show()
+    }
+
+    companion object {
+        private val TAG = Log.tag(BreezeInputChoicePopup::class.java)
+        private const val PERMISSION_REQUEST_CODE = 1001
     }
 
     fun setState(state: State) {
