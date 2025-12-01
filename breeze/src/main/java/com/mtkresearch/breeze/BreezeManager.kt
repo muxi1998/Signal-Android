@@ -49,10 +49,7 @@ class BreezeManager private constructor(
   private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
   private val windowPreferences = WindowPreferences(context)
   private var floatingWindow: BreezeFloatingWindow? = null
-  
-  // Contextual icon click handlers
-  private var penIconTapHandler: (() -> Unit)? = null
-  private var robotIconTapHandler: (() -> Unit)? = null
+  private var choicePopup: PopupWindow? = null
 
   // AI state  
   private var currentSession: AISession? = null
@@ -68,9 +65,18 @@ class BreezeManager private constructor(
 
   // Rainbow animation callback - set by ConversationFragment to trigger rainbow after AI injection
   private var rainbowAnimationCallback: (() -> Unit)? = null
-  
-  // Streaming update callback - for updating floating window during streaming
-  private var streamingUpdateCallback: ((String) -> Unit)? = null
+
+  // Voice input callback - set by ConversationFragment to trigger ASR
+  private var voiceInputCallback: (() -> Unit)? = null
+
+  // Focus input callback - set by ConversationFragment to focus the compose text field
+  private var focusInputCallback: (() -> Unit)? = null
+
+  // Store anchor bounds for voice input completion
+  private var pendingVoiceInputBounds: Rect? = null
+
+  // Activity reference for showing popups (set by ConversationFragment)
+  private var currentActivity: Activity? = null
 
   // App backgrounding detection per spec (Line 218)
   private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
@@ -95,62 +101,8 @@ class BreezeManager private constructor(
   }
 
   /**
-   * Show spark icon when input field is focused.
-   * Called from ConversationFragment.
-   */
-  fun showSparkIcon(inputBounds: Rect, inputText: String, threadId: Long) {
-    scope.launch {
-      try {
-        // Store thread ID for AI session
-        currentThreadId = threadId
-
-        Log.d(TAG, "===============================")
-        Log.d(TAG, "showSparkIcon called with:")
-        Log.d(TAG, "  bounds: $inputBounds")
-        Log.d(TAG, "  text: '$inputText'")
-        Log.d(TAG, "  threadId: $threadId")
-        Log.d(TAG, "===============================")
-
-        hideFloatingWindow()
-        Log.d(TAG, "Floating window hidden")
-
-        sparkIcon?.remove()
-        Log.d(TAG, "Previous spark icon removed")
-
-        Log.d(TAG, "Creating new SparkIcon...")
-        sparkIcon = SparkIcon.create(context, inputBounds) {
-          Log.d(TAG, "SparkIcon tapped!")
-          onSparkIconTapped(inputBounds, inputText)
-        }
-        Log.d(TAG, "SparkIcon created: ${sparkIcon != null}")
-
-        Log.d(TAG, "Calling sparkIcon.show()...")
-        sparkIcon?.show()
-
-        Log.d(TAG, "Spark icon creation completed successfully")
-      } catch (e: Exception) {
-        Log.e(TAG, "Error showing spark icon", e)
-        Log.e(TAG, "Exception details:", e)
-      }
-    }
-  }
-
-  /**
-   * Hide spark icon when input field loses focus.
-   */
-  fun hideSparkIcon() {
-    scope.launch {
-      penIconTapHandler = null
-      robotIconTapHandler = null
-    }
-  }
-
-  private var choicePopup: PopupWindow? = null
-
-  /**
-   * Handle contextual icon tap (pen or robot).
-   * Shows the floating window with tone change options.
-   * Called from ConversationFragment when user taps a contextual icon.
+   * Handle contextual icon tap (rainbow pen or rainbow mic).
+   * Shows the floating window or input choice popup.
    */
   fun onContextualIconTapped(inputBounds: Rect, inputText: String) {
     // Prevent multiple panels
@@ -193,8 +145,7 @@ class BreezeManager private constructor(
           onDismiss = ::onDismissSuggestion,
           onResize = windowPreferences::saveWindowSettings,
           onMove = windowPreferences::saveWindowPosition,
-          onToneChange = ::onToneChipTapped,
-          onSendToSelf = ::onSendToSelfTapped
+          onToneChange = ::onToneChipTapped
         )
 
         floatingWindow?.show()
@@ -257,12 +208,70 @@ class BreezeManager private constructor(
   }
 
   /**
-   * Hide floating window and spark icon.
+   * Set voice input callback for triggering ASR from ConversationFragment.
+   */
+  fun setVoiceInputCallback(callback: () -> Unit) {
+    voiceInputCallback = callback
+    Log.d(TAG, "Voice input callback registered")
+  }
+
+  /**
+   * Set focus input callback for focusing the compose text field.
+   */
+  fun setFocusInputCallback(callback: () -> Unit) {
+    focusInputCallback = callback
+    Log.d(TAG, "Focus input callback registered")
+  }
+
+  /**
+   * Clear voice input callback.
+   */
+  fun clearVoiceInputCallback() {
+    voiceInputCallback = null
+    Log.d(TAG, "Voice input callback cleared")
+  }
+
+  /**
+   * Clear focus input callback.
+   */
+  fun clearFocusInputCallback() {
+    focusInputCallback = null
+    Log.d(TAG, "Focus input callback cleared")
+  }
+
+  /**
+   * Set the current Activity for showing popups.
+   * Must be called by ConversationFragment when it becomes active.
+   */
+  fun setCurrentActivity(activity: Activity?) {
+    currentActivity = activity
+    Log.d(TAG, "Current activity set: ${activity != null}")
+  }
+
+  /**
+   * Called when voice input (ASR) completes with transcribed text.
+   * Shows the floating window with the transcribed text.
+   */
+  fun onVoiceInputComplete(inputBounds: Rect, transcribedText: String) {
+    if (transcribedText.isNotBlank()) {
+      Log.d(TAG, "Voice input complete with text: '$transcribedText'")
+      // Inject the transcribed text first
+      textInjectionCallback?.invoke(transcribedText)
+      // Then show the floating window
+      onContextualIconTapped(inputBounds, transcribedText)
+    } else {
+      Log.d(TAG, "Voice input complete but text is empty, ignoring")
+    }
+  }
+
+  /**
+   * Hide floating window and dismiss any popups.
    */
   fun hideAll() {
     scope.launch {
       hideFloatingWindow()
-      hideSparkIcon()
+      choicePopup?.dismiss()
+      choicePopup = null
       currentSession = null
     }
   }
@@ -333,15 +342,78 @@ class BreezeManager private constructor(
     floatingWindow = null
   }
 
+  private fun showInputChoicePopup(anchorBounds: Rect) {
+    val activity = currentActivity
+    if (activity == null) {
+      Log.e(TAG, "Cannot show popup - no Activity available. Call setCurrentActivity first.")
+      return
+    }
+
+    val rootView = activity.window.decorView.findViewById<View>(android.R.id.content)
+    if (rootView == null) {
+      Log.e(TAG, "Cannot show popup - no root view available")
+      return
+    }
+
+    val layoutInflater = LayoutInflater.from(activity)
+    val popupView = layoutInflater.inflate(com.mtkresearch.breeze.R.layout.breeze_input_choice_popup, null)
+
+    choicePopup = PopupWindow(
+      popupView,
+      ViewGroup.LayoutParams.WRAP_CONTENT,
+      ViewGroup.LayoutParams.WRAP_CONTENT,
+      true
+    ).apply {
+      isOutsideTouchable = true
+      elevation = 10f
+      setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+    }
+
+    // Voice Choice (Primary) - Trigger ASR
+    popupView.findViewById<View>(com.mtkresearch.breeze.R.id.breeze_choice_voice).setOnClickListener {
+      Log.d(TAG, "Voice choice selected - triggering ASR")
+      choicePopup?.dismiss()
+      choicePopup = null
+      // Store bounds for when voice input completes
+      pendingVoiceInputBounds = anchorBounds
+      // Trigger voice input via callback to ConversationFragment
+      voiceInputCallback?.invoke() ?: run {
+        Log.w(TAG, "Voice input callback not set!")
+      }
+    }
+
+    // Text Choice (Secondary) - Focus input field
+    popupView.findViewById<View>(com.mtkresearch.breeze.R.id.breeze_choice_text).setOnClickListener {
+      Log.d(TAG, "Text choice selected - focusing input")
+      choicePopup?.dismiss()
+      choicePopup = null
+      // Focus the input field via callback to ConversationFragment
+      focusInputCallback?.invoke() ?: run {
+        Log.w(TAG, "Focus input callback not set!")
+      }
+    }
+
+    // Calculate position to show above the anchor (centered)
+    val popupWidth = 120 // Approximate width of popup
+    val x = anchorBounds.centerX() - (popupWidth / 2)
+    val y = anchorBounds.top - 100 // Height offset above the input field
+
+    Log.d(TAG, "Showing input choice popup at x=$x, y=$y")
+    choicePopup?.showAtLocation(rootView, android.view.Gravity.NO_GRAVITY, x, y)
+  }
+
   fun cleanup() {
     scope.launch {
       hideAll()
     }
 
-    // Clear callbacks
+    // Clear all callbacks
     clearTextInjectionCallback()
     clearTextRetrievalCallback()
     clearRainbowAnimationCallback()
+    clearVoiceInputCallback()
+    clearFocusInputCallback()
+    pendingVoiceInputBounds = null
 
     // Unregister lifecycle callbacks
     if (context is Application) {
@@ -452,41 +524,7 @@ class AISession private constructor(
     }
   }
 
-  private fun showInputChoicePopup(anchorBounds: Rect) {
-    val layoutInflater = LayoutInflater.from(context)
-    val popupView = layoutInflater.inflate(com.mtkresearch.breeze.R.layout.breeze_input_choice_popup, null)
 
-    choicePopup = PopupWindow(
-      popupView,
-      ViewGroup.LayoutParams.WRAP_CONTENT,
-      ViewGroup.LayoutParams.WRAP_CONTENT,
-      true
-    ).apply {
-      isOutsideTouchable = true
-      elevation = 10f
-    }
-
-    // Voice Choice (Primary)
-    popupView.findViewById<View>(com.mtkresearch.breeze.R.id.breeze_choice_voice).setOnClickListener {
-      Log.d(TAG, "Voice choice selected")
-      choicePopup?.dismiss()
-      // TODO: Trigger voice recording. For now, we just dismiss.
-      // Ideally, we would call a callback to ConversationFragment to trigger the mic.
-    }
-
-    // Text Choice (Secondary)
-    popupView.findViewById<View>(com.mtkresearch.breeze.R.id.breeze_choice_text).setOnClickListener {
-      Log.d(TAG, "Text choice selected")
-      choicePopup?.dismiss()
-      // Focus input field (already happens when dismissing, but explicit intent is good)
-    }
-
-    // Calculate position to show above the anchor
-    val x = anchorBounds.left
-    val y = anchorBounds.top - 150 // Approximate height offset, should be calculated better
-
-    choicePopup?.showAtLocation(popupView, android.view.Gravity.NO_GRAVITY, x, y)
-  }
 }
 
 /**

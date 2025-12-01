@@ -117,6 +117,10 @@ class BreezeFloatingWindow private constructor(
     layoutParams = null
   }
 
+  fun isShowing(): Boolean {
+    return windowView != null
+  }
+
   fun updateSession(newSession: AISession) {
     session = newSession
     windowView?.updateSession(newSession)

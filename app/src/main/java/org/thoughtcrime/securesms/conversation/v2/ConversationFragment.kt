@@ -788,8 +788,9 @@ class ConversationFragment :
     }
 
     // Cleanup Breeze AI Assistant
+    breezeUiHook?.setCurrentActivity(null)
     breezeUiHook?.cleanup()
-    
+
     // Cleanup rainbow animation
     stopRainbowAnimation()
   }
@@ -1368,6 +1369,9 @@ class ConversationFragment :
     try {
       Log.d("ConversationFragment", "Initializing Breeze AI...")
 
+      // Set current Activity for popup display
+      breezeUiHook?.setCurrentActivity(requireActivity())
+
       Log.d("ConversationFragment", "Checking Breeze AI permissions...")
 
       // Check if we have overlay permissions
@@ -1385,6 +1389,16 @@ class ConversationFragment :
 
         breezeUiHook?.setRainbowAnimationCallback {
           this@ConversationFragment.triggerRainbowAnimationAfterAIInjection()
+        }
+
+        // Voice input callback - trigger ASR when user selects voice option
+        breezeUiHook?.setVoiceInputCallback {
+          this@ConversationFragment.triggerVoiceInputForBreeze()
+        }
+
+        // Focus input callback - focus compose text when user selects text option
+        breezeUiHook?.setFocusInputCallback {
+          this@ConversationFragment.focusComposeTextForBreeze()
         }
 
         Log.d("ConversationFragment", "Breeze AI callbacks registered successfully: ${breezeUiHook != null}")
@@ -4426,7 +4440,7 @@ class ConversationFragment :
       // Initialize Breeze callbacks on first focus
       if (hasFocus) {
         initializeBreezeAI()
-        setupContextualIcons()
+        setupBreezeIcons()
       }
 
       breezeUiHook?.let { hook ->
@@ -4434,6 +4448,7 @@ class ConversationFragment :
           if (!hasFocus) {
             Log.d("ConversationFragment", "AI Assistant: Text field focus lost")
             hook.hideAll()
+            hideBreezeIcons()
           }
         } catch (e: Exception) {
           Log.e("ConversationFragment", "AI Assistant focus handling error", e)
@@ -4447,69 +4462,58 @@ class ConversationFragment :
       }
     }
 
-    private fun setupContextualIcons() {
+
+
+    private fun handleAIAssistantOnTextChange(text: String, start: Int, before: Int, count: Int) {
+      // Update icon visibility based on text presence
+      updateBreezeIconVisibility()
+    }
+
+    private fun setupBreezeIcons() {
       val penButton = inputPanel.breezeRainbowPenButton
-      val robotButton = inputPanel.breezeRainbowRobotButton
-      
-      if (penButton == null || robotButton == null) {
+      val micButton = inputPanel.breezeRainbowMicButton
+
+      if (penButton == null || micButton == null) {
         Log.w("ConversationFragment", "Breeze icon buttons not found in InputPanel")
         return
       }
 
-      // Set up click listeners for both icons
       val bounds = Rect()
       composeText.getGlobalVisibleRect(bounds)
-      val threadId = args.threadId
 
       penButton.setOnClickListener {
         val currentText = composeText.textTrimmed.toString()
         Log.d("ConversationFragment", "Rainbow pen tapped, text: '$currentText'")
-        breezeUiHook?.let { hook ->
-          try {
-            // Call BreezeManager to show floating window
-            hook.onContextualIconTapped(bounds, currentText)
-          } catch (e: Exception) {
-            Log.e("ConversationFragment", "Error handling pen icon tap", e)
-          }
-        }
+        breezeUiHook?.onContextualIconTapped(bounds, currentText)
       }
 
-      robotButton.setOnClickListener {
-        Log.d("ConversationFragment", "Rainbow robot tapped")
-        breezeUiHook?.let { hook ->
-          try {
-            // Call BreezeManager to show floating window with empty text
-            hook.onContextualIconTapped(bounds, "")
-          } catch (e: Exception) {
-            Log.e("ConversationFragment", "Error handling robot icon tap", e)
-          }
-        }
+      micButton.setOnClickListener {
+        Log.d("ConversationFragment", "Rainbow mic tapped")
+        breezeUiHook?.onContextualIconTapped(bounds, "")
       }
 
-      // Update icon visibility based on current text
-      updateContextualIconVisibility()
+      updateBreezeIconVisibility()
     }
 
-    private fun updateContextualIconVisibility() {
+    private fun updateBreezeIconVisibility() {
       val penButton = inputPanel.breezeRainbowPenButton
-      val robotButton = inputPanel.breezeRainbowRobotButton
-      
-      if (penButton == null || robotButton == null) {
+      val micButton = inputPanel.breezeRainbowMicButton
+
+      if (penButton == null || micButton == null) {
         return
       }
 
       val hasText = composeText.textTrimmed.isNotEmpty()
-      
-      // Show pen when there's text, robot when empty
+
       penButton.visibility = if (hasText) View.VISIBLE else View.GONE
-      robotButton.visibility = if (!hasText) View.VISIBLE else View.GONE
-      
-      Log.d("ConversationFragment", "Updated icon visibility: hasText=$hasText, pen=${penButton.visibility}, robot=${robotButton.visibility}")
+      micButton.visibility = if (!hasText) View.VISIBLE else View.GONE
+
+      Log.d("ConversationFragment", "Updated icon visibility: hasText=$hasText")
     }
 
-    private fun handleAIAssistantOnTextChange(text: String, start: Int, before: Int, count: Int) {
-      // Update contextual icon visibility based on text presence
-      updateContextualIconVisibility()
+    private fun hideBreezeIcons() {
+      inputPanel.breezeRainbowPenButton?.visibility = View.GONE
+      inputPanel.breezeRainbowMicButton?.visibility = View.GONE
     }
 
     override fun onStylingChanged() {
@@ -4599,6 +4603,48 @@ class ConversationFragment :
       }
     } catch (e: Exception) {
       Log.e("ConversationFragment", "Error stopping rainbow animation", e)
+    }
+  }
+
+  /**
+   * Trigger voice input (ASR) for Breeze AI.
+   * Called when user selects voice option from input choice popup.
+   */
+  private fun triggerVoiceInputForBreeze() {
+    Log.d("ConversationFragment", "Triggering voice input for Breeze AI")
+    try {
+      // TODO: Integrate with actual ASR system
+      // For now, trigger the existing microphone recorder
+      // The transcribed text should call breezeUiHook?.onVoiceInputComplete() when ready
+
+      val bounds = Rect()
+      composeText.getGlobalVisibleRect(bounds)
+
+      // Start voice recording - this is a placeholder
+      // In a full implementation, you would:
+      // 1. Start ASR recording
+      // 2. When transcription is complete, call:
+      //    breezeUiHook?.onVoiceInputComplete(bounds, transcribedText)
+
+      // For now, just focus the input as a fallback
+      Log.w("ConversationFragment", "ASR not fully implemented - focusing input instead")
+      focusComposeTextForBreeze()
+    } catch (e: Exception) {
+      Log.e("ConversationFragment", "Error triggering voice input", e)
+    }
+  }
+
+  /**
+   * Focus the compose text field for Breeze AI.
+   * Called when user selects text option from input choice popup.
+   */
+  private fun focusComposeTextForBreeze() {
+    Log.d("ConversationFragment", "Focusing compose text for Breeze AI")
+    try {
+      composeText.requestFocus()
+      container.showSoftkey(composeText)
+    } catch (e: Exception) {
+      Log.e("ConversationFragment", "Error focusing compose text", e)
     }
   }
 

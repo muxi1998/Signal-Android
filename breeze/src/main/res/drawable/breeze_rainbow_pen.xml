@@ -11,7 +11,7 @@
     <!-- Pen body -->
     <path
         android:pathData="M3,17.25L3,21L6.75,21L17.81,9.94L14.06,6.19L3,17.25Z"
-        android:fillColor="#6B4EFF"/>
+        android:fillColor="#FF9800"/>
     
     <!-- Pen tip -->
     <path

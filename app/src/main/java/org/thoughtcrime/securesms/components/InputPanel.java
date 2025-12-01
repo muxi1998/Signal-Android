@@ -116,7 +116,7 @@ public class InputPanel extends ConstraintLayout
   private ValueAnimator          editMessageAnimator;
   private VoiceNoteDraftView     voiceNoteDraftView;
   private ImageButton            breezeRainbowPen;
-  private ImageButton            breezeRainbowRobot;
+  private ImageButton            breezeRainbowMic;
 
   private @Nullable Listener listener;
   private           boolean  emojiVisible;
@@ -173,7 +173,7 @@ public class InputPanel extends ConstraintLayout
     this.editMessageTitle       = findViewById(R.id.edit_message_title);
     this.editMessageThumbnail   = findViewById(R.id.edit_message_thumbnail);
     this.breezeRainbowPen       = findViewById(R.id.breeze_rainbow_pen);
-    this.breezeRainbowRobot     = findViewById(R.id.breeze_rainbow_robot);
+    this.breezeRainbowMic       = findViewById(R.id.breeze_rainbow_mic);
 
     this.recordLockCancel.setOnClickListener(v -> microphoneRecorderView.cancelAction(true));
 
@@ -744,8 +744,8 @@ public class InputPanel extends ConstraintLayout
     return breezeRainbowPen;
   }
 
-  public ImageButton getBreezeRainbowRobotButton() {
-    return breezeRainbowRobot;
+  public ImageButton getBreezeRainbowMicButton() {
+    return breezeRainbowMic;
   }
 
   private void hideNormalComposeViews() {

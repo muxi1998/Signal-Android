@@ -1,37 +1,22 @@
 package com.mtkresearch.breeze.api
 
-import android.content.Context
+import android.app.Activity
 import android.graphics.Rect
-import android.view.View
 
 /**
  * Interface for Breeze UI integration hooks.
- * Allows the Breeze module to inject UI components into the app.
+ * Allows the Breeze module to handle AI assistant interactions.
+ *
+ * Note: Contextual icons (rainbow pen/mic) are now embedded in the input panel
+ * and managed by ConversationFragment. This interface handles the actions
+ * triggered by those icons.
  */
 interface BreezeUiHook {
-  /**
-   * Show the Breeze spark icon when input field is focused.
-   * @param context Android context
-   * @param inputView The input EditText view
-   * @param inputBounds Bounds of the input field
-   * @param inputText Current text in the input field
-   * @param threadId Conversation thread ID
-   */
-  fun showSparkIcon(
-    context: Context,
-    inputView: View,
-    inputBounds: Rect,
-    inputText: String,
-    threadId: Long
-  )
 
   /**
-   * Hide the Breeze spark icon.
-   */
-  fun hideContextualIcons()
-
-  /**
-   * Handle tap on contextual icon.
+   * Handle tap on contextual icon (rainbow pen or rainbow mic).
+   * @param inputBounds Bounds of the input field for positioning floating window
+   * @param inputText Current text in the input field (empty for mic icon)
    */
   fun onContextualIconTapped(inputBounds: Rect, inputText: String)
 
@@ -58,6 +43,35 @@ interface BreezeUiHook {
    * @param callback Function to trigger animation
    */
   fun setRainbowAnimationCallback(callback: () -> Unit)
+
+  /**
+   * Set callback for triggering voice input (ASR).
+   * Called when user selects voice option from input choice popup.
+   * @param callback Function that triggers ASR and returns transcribed text via onVoiceInputComplete
+   */
+  fun setVoiceInputCallback(callback: () -> Unit)
+
+  /**
+   * Set callback for focusing text input.
+   * Called when user selects text option from input choice popup.
+   * @param callback Function that focuses the compose text field
+   */
+  fun setFocusInputCallback(callback: () -> Unit)
+
+  /**
+   * Called when voice input (ASR) completes with transcribed text.
+   * This triggers the floating window to show with the transcribed text.
+   * @param inputBounds Bounds of the input field
+   * @param transcribedText The text transcribed from voice
+   */
+  fun onVoiceInputComplete(inputBounds: Rect, transcribedText: String)
+
+  /**
+   * Set the current Activity for showing popups.
+   * Must be called when the hosting Activity becomes active.
+   * @param activity The current Activity, or null when destroyed
+   */
+  fun setCurrentActivity(activity: Activity?)
 
   /**
    * Clear all callbacks.
