@@ -83,8 +83,15 @@ class BreezeInputChoicePopup(
     private var audioFile: File? = null
     private var isRecording = false
 
+    // Permission handling
+    private var pendingRecordingStart = false
+
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val handler = Handler(Looper.getMainLooper())
+
+    // Colors for send button
+    private val colorDisabled = android.graphics.Color.WHITE
+    private val colorEnabled = android.graphics.Color.parseColor("#FF6B4E") // Orange
 
     fun show() {
         val rootView = activity.window.decorView.findViewById<View>(android.R.id.content)
@@ -93,11 +100,34 @@ class BreezeInputChoicePopup(
             return
         }
 
+        // Hide keyboard first to get stable positioning
+        hideKeyboardAndShow(rootView)
+    }
+
+    private fun hideKeyboardAndShow(rootView: View) {
+        val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        val currentFocus = activity.currentFocus
+
+        if (currentFocus != null && imm.isAcceptingText) {
+            // Keyboard is likely showing, hide it first
+            imm.hideSoftInputFromWindow(currentFocus.windowToken, 0)
+            // Wait for layout to settle before showing popup
+            handler.postDelayed({
+                showPopupAtPosition(rootView)
+            }, 200) // Small delay for keyboard animation
+        } else {
+            // Keyboard not showing, show popup immediately
+            showPopupAtPosition(rootView)
+        }
+    }
+
+    private fun showPopupAtPosition(rootView: View) {
         val inflater = LayoutInflater.from(activity)
         popupView = inflater.inflate(R.layout.breeze_input_choice_popup, null)
 
         setupViews()
         setupClickListeners()
+        setupTextWatcher()
 
         // Measure the popup to get its dimensions
         popupView?.measure(
@@ -123,21 +153,43 @@ class BreezeInputChoicePopup(
             }
         }
 
-        // Calculate position: center horizontally above the anchor, with padding
+        // Get fresh anchor position after keyboard is hidden
         val screenWidth = activity.resources.displayMetrics.widthPixels
+        val screenHeight = activity.resources.displayMetrics.heightPixels
         val padding = 16
 
-        // Center the popup horizontally relative to anchor, but keep within screen bounds
+        // Center the popup horizontally, but keep within screen bounds
         var x = anchorBounds.centerX() - (popupWidth / 2)
         x = x.coerceIn(padding, screenWidth - popupWidth - padding)
 
-        // Position above the anchor with some margin
-        val y = anchorBounds.top - popupHeight - 16
+        // Position popup near bottom of screen (above where input panel would be)
+        // Use a fixed offset from bottom to avoid keyboard animation issues
+        val bottomOffset = 120 // dp from bottom
+        val y = screenHeight - bottomOffset - popupHeight
 
-        Log.d(TAG, "Showing popup: anchorBounds=$anchorBounds, popupSize=${popupWidth}x${popupHeight}, position=($x, $y)")
+        Log.d(TAG, "Showing popup: popupSize=${popupWidth}x${popupHeight}, position=($x, $y)")
         popupWindow?.showAtLocation(rootView, Gravity.NO_GRAVITY, x, y)
 
         setState(State.CHOICE)
+    }
+
+    private fun setupTextWatcher() {
+        textInput?.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                updateSendButtonColor(s?.toString()?.isNotEmpty() == true)
+            }
+        })
+        // Initial state
+        updateSendButtonColor(false)
+    }
+
+    private fun updateSendButtonColor(hasText: Boolean) {
+        sendButton?.let { button ->
+            val color = if (hasText) colorEnabled else colorDisabled
+            button.setColorFilter(color, android.graphics.PorterDuff.Mode.SRC_IN)
+        }
     }
 
     private fun setupViews() {
@@ -166,12 +218,7 @@ class BreezeInputChoicePopup(
             // Choice: Voice button
             view.findViewById<View>(R.id.breeze_choice_voice)?.setOnClickListener {
                 Log.d(TAG, "Voice selected")
-                if (checkRecordPermission()) {
-                    setState(State.RECORDING)
-                    startRecording()
-                } else {
-                    requestRecordPermission()
-                }
+                startRecordingWithPermissionCheck()
             }
 
             // Choice: Text button
@@ -210,6 +257,17 @@ class BreezeInputChoicePopup(
         }
     }
 
+    private fun startRecordingWithPermissionCheck() {
+        if (checkRecordPermission()) {
+            setState(State.RECORDING)
+            startRecording()
+        } else {
+            // Mark that we want to start recording after permission is granted
+            pendingRecordingStart = true
+            requestRecordPermission()
+        }
+    }
+
     private fun checkRecordPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
             activity,
@@ -224,12 +282,52 @@ class BreezeInputChoicePopup(
             arrayOf(Manifest.permission.RECORD_AUDIO),
             PERMISSION_REQUEST_CODE
         )
-        Toast.makeText(activity, "Please grant microphone permission", Toast.LENGTH_SHORT).show()
+        Toast.makeText(activity, "Please grant microphone permission to record", Toast.LENGTH_SHORT).show()
+
+        // Start polling for permission grant
+        startPermissionPolling()
+    }
+
+    private fun startPermissionPolling() {
+        // Poll for permission grant since we can't rely on callback in popup context
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                if (pendingRecordingStart) {
+                    if (checkRecordPermission()) {
+                        Log.d(TAG, "Permission granted, auto-starting recording")
+                        pendingRecordingStart = false
+                        setState(State.RECORDING)
+                        startRecording()
+                    } else if (isShowing()) {
+                        // Keep polling if popup is still showing
+                        handler.postDelayed(this, 500)
+                    } else {
+                        pendingRecordingStart = false
+                    }
+                }
+            }
+        }, 500)
+    }
+
+    /**
+     * Call this when permission result is received.
+     * Can be called from the hosting Activity/Fragment.
+     */
+    fun onPermissionResult(granted: Boolean) {
+        if (granted && pendingRecordingStart) {
+            Log.d(TAG, "Permission granted via callback, starting recording")
+            pendingRecordingStart = false
+            setState(State.RECORDING)
+            startRecording()
+        } else if (!granted) {
+            pendingRecordingStart = false
+            Toast.makeText(activity, "Microphone permission is required for voice input", Toast.LENGTH_SHORT).show()
+        }
     }
 
     companion object {
         private val TAG = Log.tag(BreezeInputChoicePopup::class.java)
-        private const val PERMISSION_REQUEST_CODE = 1001
+        const val PERMISSION_REQUEST_CODE = 1001
     }
 
     fun setState(state: State) {
@@ -389,6 +487,8 @@ class BreezeInputChoicePopup(
 
     private fun cleanup() {
         stopPulseAnimation()
+        pendingRecordingStart = false
+        handler.removeCallbacksAndMessages(null)
         if (isRecording) {
             try {
                 mediaRecorder?.apply {
