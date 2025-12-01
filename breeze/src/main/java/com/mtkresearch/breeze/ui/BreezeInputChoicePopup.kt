@@ -99,6 +99,14 @@ class BreezeInputChoicePopup(
         setupViews()
         setupClickListeners()
 
+        // Measure the popup to get its dimensions
+        popupView?.measure(
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val popupWidth = popupView?.measuredWidth ?: 200
+        val popupHeight = popupView?.measuredHeight ?: 100
+
         popupWindow = PopupWindow(
             popupView,
             ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -115,11 +123,18 @@ class BreezeInputChoicePopup(
             }
         }
 
-        // Position popup above the anchor
-        val x = anchorBounds.centerX() - 140 // Half of minWidth
-        val y = anchorBounds.top - 150
+        // Calculate position: center horizontally above the anchor, with padding
+        val screenWidth = activity.resources.displayMetrics.widthPixels
+        val padding = 16
 
-        Log.d(TAG, "Showing popup at x=$x, y=$y")
+        // Center the popup horizontally relative to anchor, but keep within screen bounds
+        var x = anchorBounds.centerX() - (popupWidth / 2)
+        x = x.coerceIn(padding, screenWidth - popupWidth - padding)
+
+        // Position above the anchor with some margin
+        val y = anchorBounds.top - popupHeight - 16
+
+        Log.d(TAG, "Showing popup: anchorBounds=$anchorBounds, popupSize=${popupWidth}x${popupHeight}, position=($x, $y)")
         popupWindow?.showAtLocation(rootView, Gravity.NO_GRAVITY, x, y)
 
         setState(State.CHOICE)

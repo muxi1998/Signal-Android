@@ -4478,17 +4478,20 @@ class ConversationFragment :
         return
       }
 
-      val bounds = Rect()
-      composeText.getGlobalVisibleRect(bounds)
-
       penButton.setOnClickListener {
+        // Get fresh bounds at click time (important for keyboard state changes)
+        val bounds = Rect()
+        composeText.getGlobalVisibleRect(bounds)
         val currentText = composeText.textTrimmed.toString()
-        Log.d("ConversationFragment", "Rainbow pen tapped, text: '$currentText'")
+        Log.d("ConversationFragment", "Rainbow pen tapped, text: '$currentText', bounds: $bounds")
         breezeUiHook?.onContextualIconTapped(bounds, currentText)
       }
 
       micButton.setOnClickListener {
-        Log.d("ConversationFragment", "Rainbow mic tapped")
+        // Get fresh bounds at click time (important for keyboard state changes)
+        val bounds = Rect()
+        micButton.getGlobalVisibleRect(bounds)
+        Log.d("ConversationFragment", "Rainbow mic tapped, bounds: $bounds")
         breezeUiHook?.onContextualIconTapped(bounds, "")
       }
 

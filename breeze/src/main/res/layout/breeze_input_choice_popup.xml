@@ -77,7 +77,7 @@
             android:maxLines="6"
             android:scrollbars="vertical" />
 
-        <!-- Magic Send Button (bottom-right, overlapping EditText) -->
+        <!-- Send Button (bottom-right, overlapping EditText) -->
         <ImageButton
             android:id="@+id/breeze_text_send"
             android:layout_width="36dp"
@@ -88,7 +88,8 @@
             android:background="@drawable/breeze_tone_chip_background_selected"
             android:scaleType="fitCenter"
             android:padding="6dp"
-            app:srcCompat="@drawable/breeze_rainbow_pen"
+            app:srcCompat="@drawable/ic_send_24"
+            app:tint="#FFFFFF"
             android:contentDescription="Send" />
     </LinearLayout>
 
