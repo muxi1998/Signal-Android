@@ -65,8 +65,8 @@ class RainbowGradientDrawable(private val context: Context) : Drawable() {
                 bounds.bottom - halfStroke
             )
             
-            // Use compose bubble corner radius (20dp)
-            val cornerRadius = convertDpToPixels(20f)
+            // Use input field corner radius (8dp) to match breeze_input_background
+            val cornerRadius = convertDpToPixels(8f)
             
             canvas.drawRoundRect(rect, cornerRadius, cornerRadius, paint)
         }

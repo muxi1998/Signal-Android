@@ -150,6 +150,9 @@ class BreezeManager private constructor(
 
         floatingWindow?.show()
 
+        // Set the user's existing text as the initial draft (user already wrote it)
+        floatingWindow?.updateDraft(inputText)
+
         // Add initial conversation context (user's text)
         floatingWindow?.addToConversation(isUser = true, inputText)
 
@@ -295,9 +298,11 @@ class BreezeManager private constructor(
       Log.d(TAG, "Accepting draft: '$draftText'")
 
       // Inject the draft text (possibly edited by user) to compose field
+      // Trim leading/trailing whitespace and normalize line breaks
+      val cleanedText = draftText.trim()
       textInjectionCallback?.let { callback ->
         Log.d(TAG, "Injecting draft via callback...")
-        callback(draftText)
+        callback(cleanedText)
 
         // Trigger rainbow animation after AI text injection
         rainbowAnimationCallback?.let { rainbowCallback ->
@@ -306,7 +311,7 @@ class BreezeManager private constructor(
         }
 
         // Update previous summary
-        previousSummary = draftText
+        previousSummary = cleanedText
       } ?: run {
         Log.w(TAG, "No text injection callback available! Cannot inject text: '$draftText'")
       }
@@ -585,6 +590,11 @@ class BreezeManager private constructor(
 
           floatingWindow?.show()
 
+          // Set the draft to Charles's response
+          if (session.currentSuggestion.isNotBlank()) {
+            floatingWindow?.updateDraft(session.currentSuggestion)
+          }
+
           // Add initial conversation context with appropriate response type
           // Determine if input was from voice (ASR) or text
           val isVoiceInput = pendingVoiceInputBounds != null
@@ -595,10 +605,11 @@ class BreezeManager private constructor(
             } else {
               BreezeFloatingWindow.ResponseType.LLM
             }
-            floatingWindow?.addCharlesResponse("Here's my suggestion based on your input.", responseType)
+            // Add the actual Charles response to conversation
+            floatingWindow?.addCharlesResponse(session.currentSuggestion, responseType)
           }
 
-          Log.d(TAG, "Floating window shown after input choice (voice=$isVoiceInput)")
+          Log.d(TAG, "Floating window shown after input choice (voice=$isVoiceInput), suggestion='${session.currentSuggestion.take(50)}...'")
         }
       } catch (e: Exception) {
         Log.e(TAG, "Error showing floating window", e)

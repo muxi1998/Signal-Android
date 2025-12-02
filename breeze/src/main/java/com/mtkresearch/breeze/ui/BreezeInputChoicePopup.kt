@@ -22,6 +22,7 @@ import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.PopupWindow
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
@@ -74,6 +75,7 @@ class BreezeInputChoicePopup(
     private var processingCheck: ImageView? = null
     private var processingText: TextView? = null
     private var processingCancel: TextView? = null
+    private var processingScroll: ScrollView? = null
 
     // Text input views
     private var textInput: EditText? = null
@@ -250,6 +252,7 @@ class BreezeInputChoicePopup(
             processingCheck = view.findViewById(R.id.breeze_processing_check)
             processingText = view.findViewById(R.id.breeze_processing_text)
             processingCancel = view.findViewById(R.id.breeze_processing_cancel)
+            processingScroll = view.findViewById(R.id.breeze_processing_scroll)
 
             // Text input views
             textInput = view.findViewById(R.id.breeze_text_input)
@@ -503,10 +506,14 @@ class BreezeInputChoicePopup(
     }
 
     /**
-     * Update processing text (e.g., for streaming progress)
+     * Update processing text (e.g., for streaming progress) with auto-scroll
      */
     fun updateProcessingText(text: String) {
         processingText?.text = text
+        // Auto-scroll to bottom to show latest content
+        processingScroll?.post {
+            processingScroll?.fullScroll(View.FOCUS_DOWN)
+        }
     }
 
     private fun showKeyboard() {

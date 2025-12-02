@@ -238,8 +238,8 @@
         <ImageButton
             android:id="@+id/breeze_rainbow_pen"
             android:layout_width="24dp"
-            android:layout_height="match_parent"
-            android:layout_gravity="center_vertical"
+            android:layout_height="@dimen/conversation_compose_height"
+            android:layout_gravity="bottom"
             android:layout_marginEnd="16dp"
             android:background="@null"
             android:contentDescription="@string/ConversationActivity_breeze_ai_assistant"

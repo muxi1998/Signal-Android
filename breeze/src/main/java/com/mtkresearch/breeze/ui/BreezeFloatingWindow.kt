@@ -1,5 +1,6 @@
 package com.mtkresearch.breeze.ui
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -11,6 +12,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.LinearInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
@@ -23,6 +25,8 @@ import com.mtkresearch.breeze.AISession
 import com.mtkresearch.breeze.R
 import com.mtkresearch.breeze.ToneType
 import com.mtkresearch.breeze.WindowPreferences
+import com.mtkresearch.breeze.rainbow.AnimationStateType
+import com.mtkresearch.breeze.rainbow.RainbowGradientDrawable
 
 /**
  * Floating conversation window for discussing with Charles (AI).
@@ -106,6 +110,10 @@ class BreezeFloatingWindow private constructor(
     private var minWidth = 300
     private var minHeight = 400
 
+    // Rainbow animation for streaming
+    private var rainbowDrawable: RainbowGradientDrawable? = null
+    private var rainbowAnimator: ValueAnimator? = null
+
     fun show() {
         remove() // Ensure clean state
 
@@ -125,11 +133,7 @@ class BreezeFloatingWindow private constructor(
         try {
             windowManager.addView(windowView, layoutParams)
             Log.d(TAG, "Floating window shown")
-
-            // Update content after a short delay to ensure view is laid out
-            handler.postDelayed({
-                updateDraft(session.currentSuggestion)
-            }, 100)
+            // Draft is set explicitly by caller after show() - no automatic update needed
         } catch (e: Exception) {
             Log.e(TAG, "Error showing floating window", e)
         }
@@ -373,8 +377,13 @@ class BreezeFloatingWindow private constructor(
 
         conversationContainer?.let { container ->
             val messageView = TextView(context).apply {
-                // Format: emoji + label + text
-                val prefix = "${responseType.emoji} ${responseType.label}: "
+                // Format: For user messages, just emoji (human emoji is clear enough)
+                // For Charles messages, emoji + label
+                val prefix = if (isUser) {
+                    "${responseType.emoji} "
+                } else {
+                    "${responseType.emoji} ${responseType.label}: "
+                }
                 this.text = "$prefix$text"
                 textSize = 13f
                 setTextColor(if (isUser) 0xFF333333.toInt() else 0xFF6B4EFF.toInt())
@@ -382,9 +391,9 @@ class BreezeFloatingWindow private constructor(
             }
             container.addView(messageView)
 
-            // Scroll to bottom
+            // Scroll to bottom smoothly
             conversationScroll?.post {
-                conversationScroll?.fullScroll(View.FOCUS_DOWN)
+                conversationScroll?.smoothScrollTo(0, container.height)
             }
         }
     }
@@ -424,11 +433,68 @@ class BreezeFloatingWindow private constructor(
 
     /**
      * Update draft with streaming text.
+     * Shows rainbow animation and auto-scrolls to show latest content.
      */
     fun updateStreamingText(partialText: String) {
         handler.post {
+            // Start rainbow animation if not already running
+            if (rainbowAnimator?.isRunning != true) {
+                startRainbowAnimation()
+            }
+
             draftField?.setText(partialText)
+
+            // Auto-scroll to bottom to show latest content
+            draftField?.let { editText ->
+                val scrollAmount = editText.layout?.let { layout ->
+                    layout.getLineTop(editText.lineCount) - editText.height
+                } ?: 0
+                if (scrollAmount > 0) {
+                    editText.scrollTo(0, scrollAmount)
+                }
+            }
         }
+    }
+
+    /**
+     * Start rainbow border animation on the draft field.
+     */
+    private fun startRainbowAnimation() {
+        draftField?.let { editText ->
+            Log.d(TAG, "Starting rainbow animation on draft field")
+
+            // Create rainbow drawable if not exists
+            if (rainbowDrawable == null) {
+                rainbowDrawable = RainbowGradientDrawable(context)
+            }
+
+            // Apply as foreground to show rainbow border
+            editText.foreground = rainbowDrawable
+
+            // Create and start animator
+            rainbowAnimator?.cancel()
+            rainbowAnimator = ValueAnimator.ofFloat(0f, 360f).apply {
+                duration = 1500 // Fast cycle for streaming
+                repeatCount = ValueAnimator.INFINITE
+                interpolator = LinearInterpolator()
+                addUpdateListener { animation ->
+                    val rotation = animation.animatedValue as Float
+                    rainbowDrawable?.updateAnimation(rotation, AnimationStateType.TYPING)
+                }
+                start()
+            }
+        }
+    }
+
+    /**
+     * Stop rainbow border animation on the draft field.
+     */
+    private fun stopRainbowAnimation() {
+        Log.d(TAG, "Stopping rainbow animation on draft field")
+        rainbowAnimator?.cancel()
+        rainbowAnimator = null
+        draftField?.foreground = null
+        rainbowDrawable = null
     }
 
     /**
@@ -438,6 +504,10 @@ class BreezeFloatingWindow private constructor(
      */
     fun updateSession(newSession: AISession, responseType: ResponseType = ResponseType.LLM) {
         session = newSession
+
+        // Stop rainbow animation since streaming is complete
+        stopRainbowAnimation()
+
         updateDraft(session.currentSuggestion)
 
         // Add Charles's response to conversation with appropriate emoji
@@ -487,6 +557,9 @@ class BreezeFloatingWindow private constructor(
 
     fun remove() {
         try {
+            // Stop rainbow animation before removing
+            stopRainbowAnimation()
+
             windowView?.let {
                 windowManager.removeView(it)
                 Log.d(TAG, "Floating window removed")
