@@ -505,20 +505,23 @@ class BreezeFloatingWindow private constructor(
     fun updateSession(newSession: AISession, responseType: ResponseType = ResponseType.LLM) {
         session = newSession
 
-        // Stop rainbow animation since streaming is complete
-        stopRainbowAnimation()
+        // Ensure UI updates run on main thread
+        handler.post {
+            // Stop rainbow animation since streaming is complete
+            stopRainbowAnimation()
 
-        updateDraft(session.currentSuggestion)
+            updateDraft(session.currentSuggestion)
 
-        // Add Charles's response to conversation with appropriate emoji
-        if (session.currentSuggestion.isNotBlank()) {
-            val message = when (responseType) {
-                ResponseType.TONE -> "I've applied the tone transformation."
-                ResponseType.HISTORY -> "Here's your message with conversation history."
-                ResponseType.ASR -> "I've transcribed your voice input."
-                else -> "Here's an updated draft."
+            // Add Charles's response to conversation with appropriate emoji
+            if (session.currentSuggestion.isNotBlank()) {
+                val message = when (responseType) {
+                    ResponseType.TONE -> "I've applied the tone transformation."
+                    ResponseType.HISTORY -> "Here's your message with conversation history."
+                    ResponseType.ASR -> "I've transcribed your voice input."
+                    else -> "Here's an updated draft."
+                }
+                addCharlesResponse(message, responseType)
             }
-            addCharlesResponse(message, responseType)
         }
     }
 
