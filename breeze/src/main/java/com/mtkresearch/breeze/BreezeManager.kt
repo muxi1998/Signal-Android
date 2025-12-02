@@ -17,6 +17,7 @@ import com.mtkresearch.breeze.edgeai.EdgeAI
 import com.mtkresearch.breeze.edgeai.usecases.HistoryInJSON
 import com.mtkresearch.breeze.edgeai.usecases.ChatUseCase
 import com.mtkresearch.breeze.edgeai.usecases.TextRewriteUseCase
+import com.mtkresearch.breeze.edgeai.usecases.AsrUseCase
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
@@ -517,14 +518,38 @@ class BreezeManager private constructor(
       try {
         inputChoicePopup?.updateProcessingText("Transcribing audio...")
 
-        // TODO: Implement actual ASR using EdgeAI
-        // For now, simulate ASR completion after a delay
-        delay(2000)
+        // Read audio file into ByteArray
+        val audioData = audioFile.readBytes()
+        Log.d(TAG, "Read audio file: ${audioFile.absolutePath}, size=${audioData.size} bytes")
 
-        // Simulated transcribed text (replace with actual ASR result)
-        val transcribedText = "This is a simulated transcription. Replace with actual ASR."
+        // Use AsrUseCase to transcribe audio
+        val asrUseCase = AsrUseCase()
+        var transcribedText = ""
+
+        // Collect ASR streaming results
+        asrUseCase.execute(
+          audioData = audioData,
+          format = "m4a", // MediaRecorder outputs M4A format
+          sampleRate = 16000,
+          language = "en"
+        ).collect { partialText ->
+          transcribedText = partialText
+          inputChoicePopup?.updateProcessingText("Transcribing: $partialText")
+          Log.d(TAG, "ASR partial result: $partialText")
+        }
 
         Log.d(TAG, "ASR complete: $transcribedText")
+
+        // Validate transcription result
+        if (transcribedText.isBlank()) {
+          Log.w(TAG, "ASR returned empty transcription")
+          inputChoicePopup?.updateProcessingText("Could not transcribe audio. Please try again.")
+          delay(2000)
+          inputChoicePopup?.dismiss()
+          audioFile.delete()
+          return@launch
+        }
+
         inputChoicePopup?.updateProcessingText("Processing with AI...")
 
         // Store what user said (transcribed)
@@ -554,7 +579,11 @@ class BreezeManager private constructor(
         }
       } catch (e: Exception) {
         Log.e(TAG, "Error processing recording", e)
+        inputChoicePopup?.updateProcessingText("Error: ${e.message}")
+        delay(2000)
         inputChoicePopup?.dismiss()
+        // Clean up audio file on error
+        audioFile.delete()
       }
     }
   }

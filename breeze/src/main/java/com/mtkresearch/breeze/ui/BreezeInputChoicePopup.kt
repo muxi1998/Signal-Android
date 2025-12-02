@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
+import android.media.AudioFormat
+import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.Handler
@@ -34,6 +36,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.signal.core.util.logging.Log
 import java.io.File
+import java.io.FileOutputStream
 
 /**
  * Manages the Breeze input choice popup with multiple states:
@@ -82,7 +85,8 @@ class BreezeInputChoicePopup(
     private var sendButton: ImageButton? = null
 
     // Recording
-    private var mediaRecorder: MediaRecorder? = null
+    private var audioRecord: AudioRecord? = null
+    private var recordingThread: Thread? = null
     private var audioFile: File? = null
     private var isRecording = false
 
@@ -439,23 +443,39 @@ class BreezeInputChoicePopup(
 
     private fun startRecording() {
         try {
-            audioFile = File.createTempFile("breeze_recording_", ".m4a", activity.cacheDir)
+            audioFile = File.createTempFile("breeze_recording_", ".pcm", activity.cacheDir)
 
-            mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(activity)
-            } else {
-                @Suppress("DEPRECATION")
-                MediaRecorder()
-            }.apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setOutputFile(audioFile?.absolutePath)
-                prepare()
-                start()
+            val sampleRate = 16000
+            val channelConfig = AudioFormat.CHANNEL_IN_MONO
+            val audioFormat = AudioFormat.ENCODING_PCM_16BIT
+            val minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+
+            if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                Log.e(TAG, "Permission not granted")
+                return
             }
 
+            audioRecord = AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                sampleRate,
+                channelConfig,
+                audioFormat,
+                minBufferSize * 2
+            )
+
+            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
+                Log.e(TAG, "AudioRecord initialization failed")
+                return
+            }
+
+            audioRecord?.startRecording()
             isRecording = true
+
+            recordingThread = Thread {
+                writeAudioDataToFile()
+            }
+            recordingThread?.start()
+
             Log.d(TAG, "Recording started: ${audioFile?.absolutePath}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start recording", e)
@@ -463,14 +483,37 @@ class BreezeInputChoicePopup(
         }
     }
 
+    private fun writeAudioDataToFile() {
+        val data = ByteArray(1024)
+        var os: FileOutputStream? = null
+        try {
+            os = FileOutputStream(audioFile)
+            while (isRecording) {
+                val read = audioRecord?.read(data, 0, data.size) ?: 0
+                if (read > 0) {
+                    os.write(data, 0, read)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error writing audio data", e)
+        } finally {
+            try {
+                os?.close()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error closing output stream", e)
+            }
+        }
+    }
+
     private fun stopRecording() {
         try {
-            mediaRecorder?.apply {
-                stop()
-                release()
-            }
-            mediaRecorder = null
             isRecording = false
+            audioRecord?.stop()
+            audioRecord?.release()
+            audioRecord = null
+            
+            recordingThread?.join()
+            recordingThread = null
 
             Log.d(TAG, "Recording stopped")
 
@@ -547,16 +590,16 @@ class BreezeInputChoicePopup(
         pendingRecordingStart = false
         handler.removeCallbacksAndMessages(null)
         if (isRecording) {
+            isRecording = false
             try {
-                mediaRecorder?.apply {
-                    stop()
-                    release()
-                }
+                audioRecord?.stop()
+                audioRecord?.release()
+                recordingThread?.join()
             } catch (e: Exception) {
                 Log.e(TAG, "Error cleaning up recorder", e)
             }
-            mediaRecorder = null
-            isRecording = false
+            audioRecord = null
+            recordingThread = null
         }
         hideKeyboard()
         rootView = null
