@@ -27,6 +27,15 @@ val canonicalVersionName = "7.66.4"
 val currentHotfixVersion = 0
 val maxHotfixVersions = 100
 
+// Breeze fork versioning
+// - breezeReleaseNumber: Increment for each breezePlay release (resets to 1 when upstream updates)
+// - breezeVersionName: Your semantic version (major.minor.patch)
+// - breezeReleaseStage: "alpha", "beta", "rc", or "" for stable
+val breezeReleaseNumber = 1
+val breezeVersionName = "0.3.1"
+val breezeReleaseStage = "beta"
+val maxBreezeReleases = 1000  // Reserve space for releases per upstream version
+
 val keystores: Map<String, Properties?> = mapOf("debug" to loadKeystoreProperties("keystore.debug.properties"))
 
 val selectableVariants = listOf(
@@ -388,10 +397,23 @@ android {
     create("breezePlay") {
       dimension = "distribution"
       applicationId = "com.mtkresearch.securesms"
+
+      // Custom versioning for Breeze fork
+      // versionCode: upstream * 1000 + release number (e.g., 1623001)
+      // versionName: upstream-mr.version-stage (e.g., 7.66.3-mr.0.3.1-beta)
+      val breezeVersionCode = (canonicalVersionCode * maxBreezeReleases) + breezeReleaseNumber
+      val breezeStageSuffix = if (breezeReleaseStage.isNotEmpty()) "-$breezeReleaseStage" else ""
+      val breezeFullVersionName = "$canonicalVersionName-mr.$breezeVersionName$breezeStageSuffix"
+
+      versionCode = breezeVersionCode
+      versionName = breezeFullVersionName
+
       buildConfigField("boolean", "MANAGES_APP_UPDATES", "false")
       buildConfigField("String", "APK_UPDATE_MANIFEST_URL", "null")
       buildConfigField("String", "BUILD_DISTRIBUTION_TYPE", "\"breezePlay\"")
       buildConfigField("boolean", "LINK_DEVICE_UX_ENABLED", "true")
+      buildConfigField("String", "BREEZE_VERSION", "\"$breezeVersionName\"")
+      buildConfigField("String", "UPSTREAM_VERSION", "\"$canonicalVersionName\"")
     }
 
     create("prod") {

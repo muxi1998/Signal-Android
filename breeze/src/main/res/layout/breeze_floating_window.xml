@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/breeze_floating_window_background"
+    android:elevation="8dp">
+
+    <!-- Corner Resize Handles (transparent touch areas) -->
+    <View
+        android:id="@+id/breeze_resize_top_left"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="top|start" />
+
+    <View
+        android:id="@+id/breeze_resize_top_right"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="top|end" />
+
+    <View
+        android:id="@+id/breeze_resize_bottom_left"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="bottom|start" />
+
+    <View
+        android:id="@+id/breeze_resize_bottom_right"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="bottom|end" />
+
+    <!-- Close Button (Top-Right) -->
+    <ImageButton
+        android:id="@+id/breeze_close_button"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="8dp"
+        android:background="@drawable/breeze_close_button_background"
+        android:scaleType="centerInside"
+        android:padding="6dp"
+        android:src="@drawable/ic_close_24"
+        android:contentDescription="Close"
+        android:elevation="4dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- Drag Handle -->
+        <View
+            android:id="@+id/breeze_drag_handle"
+            android:layout_width="40dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/breeze_drag_handle_bg" />
+
+        <!-- Tone Chips (Horizontal Scroll) -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:id="@+id/breeze_tone_chips"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/breeze_tone_history"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:text="HistoryInJson"
+                    android:textSize="12sp"
+                    android:textColor="#333333"
+                    android:background="@drawable/breeze_tone_chip_background"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/breeze_tone_formal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:text="Formal"
+                    android:textSize="12sp"
+                    android:textColor="#333333"
+                    android:background="@drawable/breeze_tone_chip_background"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/breeze_tone_friendly"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:text="Friendly"
+                    android:textSize="12sp"
+                    android:textColor="#333333"
+                    android:background="@drawable/breeze_tone_chip_background"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/breeze_tone_clarity"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:text="Clarity"
+                    android:textSize="12sp"
+                    android:textColor="#333333"
+                    android:background="@drawable/breeze_tone_chip_background"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/breeze_tone_shorten"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:text="Shorten"
+                    android:textSize="12sp"
+                    android:textColor="#333333"
+                    android:background="@drawable/breeze_tone_chip_background"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/breeze_tone_expand"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:text="Expand"
+                    android:textSize="12sp"
+                    android:textColor="#333333"
+                    android:background="@drawable/breeze_tone_chip_background" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Conversation History Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Conversation"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
+
+        <ScrollView
+            android:id="@+id/breeze_conversation_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:minHeight="60dp"
+            android:background="@drawable/breeze_section_background"
+            android:padding="8dp"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:id="@+id/breeze_conversation_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </ScrollView>
+
+        <!-- Draft Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Draft"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:minHeight="60dp"
+            android:layout_marginBottom="12dp">
+
+            <EditText
+                android:id="@+id/breeze_draft_field"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/breeze_input_background"
+                android:padding="12dp"
+                android:paddingBottom="44dp"
+                android:hint="Charles will suggest a draft here..."
+                android:textColorHint="#80000000"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:gravity="top|start"
+                android:inputType="textMultiLine"
+                android:scrollbars="vertical" />
+
+            <!-- Submit Button (Accept Draft) -->
+            <TextView
+                android:id="@+id/breeze_draft_submit"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="8dp"
+                android:paddingHorizontal="16dp"
+                android:gravity="center"
+                android:text="Accept"
+                android:textColor="#4CAF50"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:background="@drawable/breeze_accept_button_background" />
+        </FrameLayout>
+
+        <!-- Input Section (Ask Charles) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <EditText
+                android:id="@+id/breeze_chat_input"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:background="@drawable/breeze_input_background"
+                android:paddingHorizontal="12dp"
+                android:hint="Ask Charles..."
+                android:textColorHint="#80000000"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:inputType="text"
+                android:imeOptions="actionSend"
+                android:maxLines="1" />
+
+            <ImageButton
+                android:id="@+id/breeze_chat_send"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/breeze_send_button_background"
+                android:scaleType="centerInside"
+                android:padding="10dp"
+                android:src="@drawable/ic_send_24"
+                android:contentDescription="Send to Charles" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

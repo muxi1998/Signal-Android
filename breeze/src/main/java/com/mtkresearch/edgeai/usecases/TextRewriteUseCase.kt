@@ -87,7 +87,7 @@ class TextRewriteUseCase {
       ToneType.EXPAND -> 
         "You are a detail-oriented writing assistant. Expand messages with helpful context and detail."
       
-      ToneType.HISTORY_JSON -> 
+      ToneType.HISTORY_JSON ->
         "You are a context-aware writing assistant. Rewrite messages considering conversation history."
     }
   }

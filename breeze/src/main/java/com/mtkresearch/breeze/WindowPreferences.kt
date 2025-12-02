@@ -23,13 +23,13 @@ class WindowPreferences(context: Context) {
     private const val KEY_WINDOW_Y = "window_y"
     private const val KEY_HAS_SAVED_POSITION = "has_saved_position"
 
-    // Default values
-    const val DEFAULT_WIDTH_DP = 300
-    const val DEFAULT_HEIGHT_DP = 150
-    const val MIN_WIDTH_DP = 250
-    const val MIN_HEIGHT_DP = 120
-    const val MAX_WIDTH_DP = 450
-    const val MAX_HEIGHT_DP = 300
+    // Default values - larger defaults for better usability
+    const val DEFAULT_WIDTH_DP = 350
+    const val DEFAULT_HEIGHT_DP = 450
+    const val MIN_WIDTH_DP = 280
+    const val MIN_HEIGHT_DP = 350
+    const val MAX_WIDTH_DP = 500
+    const val MAX_HEIGHT_DP = 700
   }
 
   private val sharedPrefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -100,8 +100,9 @@ class WindowPreferences(context: Context) {
 
   /**
    * Save both size and position.
+   * Note: Parameter order matches the callback from BreezeFloatingWindow (x, y, width, height)
    */
-  fun saveWindowSettings(width: Int, height: Int, x: Int, y: Int) {
+  fun saveWindowSettings(x: Int, y: Int, width: Int, height: Int) {
     val constrainedWidth = constrainWidth(width)
     val constrainedHeight = constrainHeight(height)
     val constrainedX = constrainX(x, constrainedWidth)
