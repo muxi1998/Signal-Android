@@ -19,7 +19,7 @@ class AppBreezeDataProvider(private val context: Context) : BreezeDataProvider {
     private val TAG = Log.tag(AppBreezeDataProvider::class.java)
   }
   
-  fun getConversationSummary(conversationId: Long): ConversationSummary? {
+  override fun getConversationSummary(conversationId: Long): ConversationSummary? {
     return try {
       val recipient = SignalDatabase.threads.getRecipientForThreadId(conversationId)
       val threadRecord = SignalDatabase.threads.getThreadRecord(conversationId)
@@ -35,7 +35,7 @@ class AppBreezeDataProvider(private val context: Context) : BreezeDataProvider {
     }
   }
 
-  fun getMessageSummary(messageId: Long): MessageSummary? {
+  override fun getMessageSummary(messageId: Long): MessageSummary? {
     return try {
       val messageRecord = SignalDatabase.messages.getMessageRecord(messageId)
 
@@ -51,7 +51,7 @@ class AppBreezeDataProvider(private val context: Context) : BreezeDataProvider {
     }
   }
 
-  fun getRecentMessages(conversationId: Long, limit: Int): List<MessageSummary> {
+  override fun getRecentMessages(conversationId: Long, limit: Int): List<MessageSummary> {
     return try {
       val messages = mutableListOf<MessageSummary>()
       
