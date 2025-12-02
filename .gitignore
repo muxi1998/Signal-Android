@@ -43,3 +43,4 @@ mx_dev/
 specs/app/playProd/release/*.aab
 app/playProd/
 specs/
+app/breezePlayProd/release/*.aab
