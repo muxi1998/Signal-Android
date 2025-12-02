@@ -16,6 +16,7 @@ import android.view.animation.LinearInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -47,7 +48,8 @@ class BreezeFloatingWindow private constructor(
     private val onResize: (Int, Int, Int, Int) -> Unit,
     private val onMove: (Int, Int, Int, Int) -> Unit,
     private val onToneChange: (ToneType) -> Unit,
-    private val onChatMessage: (String) -> Unit
+    private val onChatMessage: (String) -> Unit,
+    private val onStopRequest: () -> Unit = {}
 ) {
 
     companion object {
@@ -63,11 +65,12 @@ class BreezeFloatingWindow private constructor(
             onResize: (Int, Int, Int, Int) -> Unit,
             onMove: (Int, Int, Int, Int) -> Unit,
             onToneChange: (ToneType) -> Unit,
-            onChatMessage: (String) -> Unit = {}
+            onChatMessage: (String) -> Unit = {},
+            onStopRequest: () -> Unit = {}
         ): BreezeFloatingWindow {
             return BreezeFloatingWindow(
                 context, anchorBounds, savedSettings, session,
-                onAccept, onDismiss, onResize, onMove, onToneChange, onChatMessage
+                onAccept, onDismiss, onResize, onMove, onToneChange, onChatMessage, onStopRequest
             )
         }
     }
@@ -95,6 +98,8 @@ class BreezeFloatingWindow private constructor(
 
     // UI Components
     private var draftField: EditText? = null
+    private var draftContainer: FrameLayout? = null
+    private var stopButton: TextView? = null
     private var chatInput: EditText? = null
     private var conversationContainer: LinearLayout? = null
     private var conversationScroll: ScrollView? = null
@@ -143,9 +148,18 @@ class BreezeFloatingWindow private constructor(
     private fun setupViews() {
         windowView?.let { view ->
             draftField = view.findViewById(R.id.breeze_draft_field)
+            draftContainer = view.findViewById(R.id.breeze_draft_container)
+            stopButton = view.findViewById(R.id.breeze_stop_button)
             chatInput = view.findViewById(R.id.breeze_chat_input)
             conversationContainer = view.findViewById(R.id.breeze_conversation_container)
             conversationScroll = view.findViewById(R.id.breeze_conversation_scroll)
+
+            // Setup stop button click handler
+            stopButton?.setOnClickListener {
+                Log.d(TAG, "Stop button clicked - cancelling request")
+                onStopRequest()
+                stopStreaming()
+            }
         }
     }
 
@@ -458,19 +472,23 @@ class BreezeFloatingWindow private constructor(
     }
 
     /**
-     * Start rainbow border animation on the draft field.
+     * Start rainbow border animation on the draft container (not EditText).
+     * Using the container prevents the rainbow from scrolling with EditText content.
      */
     private fun startRainbowAnimation() {
-        draftField?.let { editText ->
-            Log.d(TAG, "Starting rainbow animation on draft field")
+        draftContainer?.let { container ->
+            Log.d(TAG, "Starting rainbow animation on draft container")
+
+            // Show stop button
+            stopButton?.visibility = View.VISIBLE
 
             // Create rainbow drawable if not exists
             if (rainbowDrawable == null) {
                 rainbowDrawable = RainbowGradientDrawable(context)
             }
 
-            // Apply as foreground to show rainbow border
-            editText.foreground = rainbowDrawable
+            // Apply as foreground on container (not EditText) to prevent scroll issues
+            container.foreground = rainbowDrawable
 
             // Create and start animator
             rainbowAnimator?.cancel()
@@ -488,14 +506,26 @@ class BreezeFloatingWindow private constructor(
     }
 
     /**
-     * Stop rainbow border animation on the draft field.
+     * Stop rainbow border animation on the draft container.
      */
     private fun stopRainbowAnimation() {
-        Log.d(TAG, "Stopping rainbow animation on draft field")
+        Log.d(TAG, "Stopping rainbow animation on draft container")
         rainbowAnimator?.cancel()
         rainbowAnimator = null
-        draftField?.foreground = null
+        draftContainer?.foreground = null
         rainbowDrawable = null
+        // Hide stop button
+        stopButton?.visibility = View.GONE
+    }
+
+    /**
+     * Stop streaming and clean up animation state.
+     * Called when user clicks stop button or streaming completes.
+     */
+    fun stopStreaming() {
+        handler.post {
+            stopRainbowAnimation()
+        }
     }
 
     /**

@@ -146,7 +146,8 @@ class BreezeManager private constructor(
           onResize = windowPreferences::saveWindowSettings,
           onMove = windowPreferences::saveWindowPosition,
           onToneChange = ::onToneChipTapped,
-          onChatMessage = { message -> onChatMessageReceived(message, inputBounds) }
+          onChatMessage = { message -> onChatMessageReceived(message, inputBounds) },
+          onStopRequest = ::onStopRequested
         )
 
         floatingWindow?.show()
@@ -349,6 +350,15 @@ class BreezeManager private constructor(
       hideFloatingWindow()
       currentSession = null
     }
+  }
+
+  /**
+   * Handle stop request from floating window.
+   * Cancels any ongoing streaming operation.
+   */
+  private fun onStopRequested() {
+    Log.d(TAG, "Stop requested - cancelling current session streaming")
+    currentSession?.cancelStreaming()
   }
 
   private fun onToneChipTapped(toneType: ToneType) {
@@ -614,7 +624,8 @@ class BreezeManager private constructor(
             onResize = windowPreferences::saveWindowSettings,
             onMove = windowPreferences::saveWindowPosition,
             onToneChange = ::onToneChipTapped,
-            onChatMessage = { message -> onChatMessageReceived(message, anchorBounds) }
+            onChatMessage = { message -> onChatMessageReceived(message, anchorBounds) },
+            onStopRequest = ::onStopRequested
           )
 
           floatingWindow?.show()
@@ -722,27 +733,30 @@ class AISession private constructor(
 
   companion object {
     private val TAG = Log.tag(AISession::class.java)
-    
+
     fun create(text: String, previous: String, threadId: Long? = null): AISession {
       val session = AISession(text, previous, threadId)
       session.generateInitialSuggestion()
       return session
     }
   }
-  
+
   private val textRewriteUseCase = TextRewriteUseCase()
   private val chatUseCase = ChatUseCase()
   private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+  // Track current streaming job for cancellation
+  private var currentStreamingJob: kotlinx.coroutines.Job? = null
 
   var currentSuggestion: String = ""
     private set
 
   var previousSummary: String = previousText
     private set
-    
+
   var isStreaming: Boolean = false
     private set
-  
+
   private var streamingCallback: ((String) -> Unit)? = null
   private var completionCallback: ((String) -> Unit)? = null
 
@@ -773,6 +787,9 @@ class AISession private constructor(
    * Apply tone transformation using streaming LLM chat.
    */
   fun applyTone(toneType: ToneType, currentInputText: String = originalText) {
+    // Cancel any existing streaming job first
+    cancelStreaming()
+
     // Move current to previous (but skip the initial placeholder)
     val placeholder = "Tap a tone to rewrite your message."
     if (currentSuggestion.isNotBlank() && currentSuggestion != placeholder) {
@@ -786,7 +803,7 @@ class AISession private constructor(
     Log.d(TAG, "Applying tone: $toneType to text: '$currentInputText'")
 
     // Use streaming chat for all tones
-    scope.launch {
+    currentStreamingJob = scope.launch {
       try {
         textRewriteUseCase.execute(
           text = currentInputText,
@@ -805,6 +822,7 @@ class AISession private constructor(
           }
           .onCompletion { error ->
             isStreaming = false
+            currentStreamingJob = null
             if (error == null) {
               // Trim trailing whitespace/newlines that LLMs often output
               currentSuggestion = currentSuggestion.trim()
@@ -812,6 +830,8 @@ class AISession private constructor(
               Log.d(TAG, "Streaming completed. Final text: '$currentSuggestion'")
               // Notify completion callback with final text
               completionCallback?.invoke(currentSuggestion)
+            } else if (error is kotlinx.coroutines.CancellationException) {
+              Log.d(TAG, "Streaming cancelled by user")
             }
           }
           .catch { e ->
@@ -823,6 +843,7 @@ class AISession private constructor(
       } catch (e: Exception) {
         Log.e(TAG, "Failed to apply tone: $toneType", e)
         isStreaming = false
+        currentStreamingJob = null
         currentSuggestion = "Error: ${e.message}"
         streamingCallback?.invoke(currentSuggestion)
       }
@@ -838,13 +859,16 @@ class AISession private constructor(
    * @param currentDraft Optional current draft being worked on
    */
   fun chat(userMessage: String, conversationHistory: String? = null, currentDraft: String? = null) {
+    // Cancel any existing streaming job first
+    cancelStreaming()
+
     // Reset current suggestion for streaming
     currentSuggestion = ""
     isStreaming = true
 
     Log.d(TAG, "Starting chat with Charles: '$userMessage'")
 
-    scope.launch {
+    currentStreamingJob = scope.launch {
       try {
         chatUseCase.execute(
           userMessage = userMessage,
@@ -863,10 +887,15 @@ class AISession private constructor(
           }
           .onCompletion { error ->
             isStreaming = false
+            currentStreamingJob = null
             if (error == null) {
+              // Trim trailing whitespace/newlines
+              currentSuggestion = currentSuggestion.trim()
               Log.d(TAG, "Chat completed. Final text: '$currentSuggestion'")
               // Notify completion callback with final text
               completionCallback?.invoke(currentSuggestion)
+            } else if (error is kotlinx.coroutines.CancellationException) {
+              Log.d(TAG, "Chat streaming cancelled by user")
             }
           }
           .catch { e ->
@@ -878,10 +907,26 @@ class AISession private constructor(
       } catch (e: Exception) {
         Log.e(TAG, "Failed to chat", e)
         isStreaming = false
+        currentStreamingJob = null
         currentSuggestion = "Error: ${e.message}"
         streamingCallback?.invoke(currentSuggestion)
       }
     }
+  }
+
+  /**
+   * Cancel any ongoing streaming operation.
+   * Call this when user clicks stop button or when switching operations.
+   */
+  fun cancelStreaming() {
+    currentStreamingJob?.let { job ->
+      if (job.isActive) {
+        Log.d(TAG, "Cancelling active streaming job")
+        job.cancel()
+      }
+    }
+    currentStreamingJob = null
+    isStreaming = false
   }
 
 }
