@@ -74,9 +74,10 @@ class BreezeFloatingWindow private constructor(
 
     // Response types for conversation messages with emojis
     enum class ResponseType(val emoji: String, val label: String) {
-        USER("👤", "You"),              // User message
+        USER("👤", "You"),              // User message (text input)
+        USER_VOICE("👤🎤", "You"),      // User message (voice input)
         LLM("🤖", "Charles"),           // LLM response
-        ASR("🎤", "Charles"),           // Speech-to-text result
+        ASR("🎤", "Charles"),           // Speech-to-text result (deprecated, use USER_VOICE for user)
         TTS("🔊", "Charles"),           // Text-to-speech result
         TONE("✨", "Charles"),          // Tone transformation result
         HISTORY("📋", "Charles"),       // History in JSON result

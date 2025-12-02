@@ -627,15 +627,16 @@ class BreezeManager private constructor(
           // Add initial conversation context with appropriate response type
           // Determine if input was from voice (ASR) or text
           val isVoiceInput = pendingVoiceInputBounds != null
-          floatingWindow?.addToConversation(isUser = true, originalInputText)
+          // User message: use USER_VOICE for voice input, USER for text input
+          val userResponseType = if (isVoiceInput) {
+            BreezeFloatingWindow.ResponseType.USER_VOICE
+          } else {
+            BreezeFloatingWindow.ResponseType.USER
+          }
+          floatingWindow?.addToConversation(isUser = true, originalInputText, userResponseType)
           if (session.currentSuggestion.isNotBlank()) {
-            val responseType = if (isVoiceInput) {
-              BreezeFloatingWindow.ResponseType.ASR
-            } else {
-              BreezeFloatingWindow.ResponseType.LLM
-            }
-            // Add the actual Charles response to conversation
-            floatingWindow?.addCharlesResponse(session.currentSuggestion, responseType)
+            // Charles's response is always LLM (robot emoji), regardless of input method
+            floatingWindow?.addCharlesResponse(session.currentSuggestion, BreezeFloatingWindow.ResponseType.LLM)
           }
 
           Log.d(TAG, "Floating window shown after input choice (voice=$isVoiceInput), suggestion='${session.currentSuggestion.take(50)}...'")
