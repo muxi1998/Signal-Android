@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <!-- Orange/red background when TTS is playing (stop state) -->
+    <solid android:color="#FBE9E7"/>
+    <stroke android:width="2dp" android:color="#FF5722"/>
+</shape>

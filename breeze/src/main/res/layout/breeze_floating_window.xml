@@ -156,22 +156,45 @@
             android:textStyle="bold"
             android:layout_marginBottom="4dp" />
 
-        <ScrollView
-            android:id="@+id/breeze_conversation_scroll"
+        <!-- Conversation container with TTS button overlay -->
+        <FrameLayout
+            android:id="@+id/breeze_conversation_wrapper"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:minHeight="60dp"
-            android:background="@drawable/breeze_section_background"
-            android:padding="8dp"
             android:layout_marginBottom="12dp">
 
-            <LinearLayout
-                android:id="@+id/breeze_conversation_container"
+            <ScrollView
+                android:id="@+id/breeze_conversation_scroll"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical" />
-        </ScrollView>
+                android:layout_height="match_parent"
+                android:background="@drawable/breeze_section_background"
+                android:padding="8dp"
+                android:paddingBottom="44dp"
+                android:clipToPadding="false">
+
+                <LinearLayout
+                    android:id="@+id/breeze_conversation_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+
+            <!-- TTS Button - bottom right corner like Accept button -->
+            <TextView
+                android:id="@+id/breeze_tts_button"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="8dp"
+                android:gravity="center"
+                android:text="🔊"
+                android:textSize="20sp"
+                android:background="@drawable/breeze_tts_button_background"
+                android:elevation="4dp"
+                android:visibility="gone" />
+        </FrameLayout>
 
         <!-- Draft Section -->
         <LinearLayout

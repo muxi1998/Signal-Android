@@ -18,6 +18,9 @@ import com.mtkresearch.breeze.edgeai.usecases.HistoryInJSON
 import com.mtkresearch.breeze.edgeai.usecases.ChatUseCase
 import com.mtkresearch.breeze.edgeai.usecases.TextRewriteUseCase
 import com.mtkresearch.breeze.edgeai.usecases.AsrUseCase
+import com.mtkresearch.breeze.edgeai.usecases.TtsUseCase
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
@@ -77,6 +80,10 @@ class BreezeManager private constructor(
 
   // Activity reference for showing popups (set by ConversationFragment)
   private var currentActivity: Activity? = null
+
+  // TTS state
+  private val ttsUseCase = TtsUseCase()
+  private var ttsJob: Job? = null
 
   // App backgrounding detection per spec (Line 218)
   private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
@@ -147,7 +154,9 @@ class BreezeManager private constructor(
           onMove = windowPreferences::saveWindowPosition,
           onToneChange = ::onToneChipTapped,
           onChatMessage = { message -> onChatMessageReceived(message, inputBounds) },
-          onStopRequest = ::onStopRequested
+          onStopRequest = ::onStopRequested,
+          onTtsRequest = ::onTtsRequested,
+          onTtsStop = ::onTtsStopRequested
         )
 
         floatingWindow?.show()
@@ -287,6 +296,9 @@ class BreezeManager private constructor(
    * Hide floating window and dismiss any popups.
    */
   fun hideAll() {
+    // Stop any ongoing TTS when hiding
+    onTtsStopRequested()
+
     scope.launch {
       hideFloatingWindow()
       inputChoicePopup?.dismiss()
@@ -359,6 +371,72 @@ class BreezeManager private constructor(
   private fun onStopRequested() {
     Log.d(TAG, "Stop requested - cancelling current session streaming")
     currentSession?.cancelStreaming()
+  }
+
+  /**
+   * Handle TTS request from floating window.
+   * Speaks the given text using EdgeAI TTS.
+   */
+  private fun onTtsRequested(text: String) {
+    // Cancel any existing TTS first
+    onTtsStopRequested()
+
+    Log.d(TAG, "TTS requested for text: '${text.take(50)}...'")
+
+    ttsJob = scope.launch {
+      try {
+        floatingWindow?.setTtsState(BreezeFloatingWindow.TtsState.PLAYING)
+
+        ttsUseCase.execute(text)
+          .onStart {
+            Log.d(TAG, "TTS streaming started")
+          }
+          .onCompletion { error ->
+            if (error == null) {
+              Log.d(TAG, "TTS completed successfully")
+              floatingWindow?.setTtsState(BreezeFloatingWindow.TtsState.IDLE)
+            } else if (error is CancellationException) {
+              Log.d(TAG, "TTS cancelled by user")
+              floatingWindow?.setTtsState(BreezeFloatingWindow.TtsState.IDLE)
+            }
+          }
+          .catch { e ->
+            Log.e(TAG, "TTS error", e)
+            floatingWindow?.setTtsState(BreezeFloatingWindow.TtsState.IDLE)
+          }
+          .collect { response ->
+            Log.d(TAG, "TTS response: complete=${response.isComplete}")
+            if (response.isComplete) {
+              floatingWindow?.setTtsState(BreezeFloatingWindow.TtsState.IDLE)
+            }
+          }
+      } catch (e: Exception) {
+        Log.e(TAG, "TTS failed", e)
+        floatingWindow?.setTtsState(BreezeFloatingWindow.TtsState.IDLE)
+      }
+    }
+  }
+
+  /**
+   * Handle TTS stop request from floating window.
+   * Cancels any ongoing TTS playback and stops the BreezeApp Engine.
+   */
+  private fun onTtsStopRequested() {
+    Log.d(TAG, "TTS stop requested")
+
+    // Cancel the coroutine job
+    ttsJob?.cancel()
+    ttsJob = null
+
+    // Send stop signal to BreezeApp Engine (for any ongoing operation)
+    try {
+      EdgeAI.stop()
+    } catch (e: Exception) {
+      Log.w(TAG, "Error stopping EdgeAI operation", e)
+    }
+
+    // Update UI state
+    floatingWindow?.setTtsState(BreezeFloatingWindow.TtsState.IDLE)
   }
 
   private fun onToneChipTapped(toneType: ToneType) {
@@ -625,7 +703,9 @@ class BreezeManager private constructor(
             onMove = windowPreferences::saveWindowPosition,
             onToneChange = ::onToneChipTapped,
             onChatMessage = { message -> onChatMessageReceived(message, anchorBounds) },
-            onStopRequest = ::onStopRequested
+            onStopRequest = ::onStopRequested,
+            onTtsRequest = ::onTtsRequested,
+            onTtsStop = ::onTtsStopRequested
           )
 
           floatingWindow?.show()
@@ -703,6 +783,9 @@ class BreezeManager private constructor(
   }
 
   fun cleanup() {
+    // Stop any ongoing TTS playback
+    onTtsStopRequested()
+
     scope.launch {
       hideAll()
     }

@@ -152,7 +152,7 @@ object EdgeAI {
    * TTS (Text-to-Speech).
    * Converts text to speech audio.
    * Note: BreezeApp Engine handles playback directly.
-   * 
+   *
    * @param text Text to convert to speech
    * @param voice Voice identifier (default "alloy")
    * @param speed Speech speed (0.5 to 2.0, default 1.0)
@@ -164,9 +164,9 @@ object EdgeAI {
     speed: Float = 1.0f
   ): Flow<TtsResponse> {
     checkInitialized()
-    
+
     Log.d(TAG, "Starting TTS: text='$text', voice=$voice, speed=$speed")
-    
+
     // TTS request expects input, voice, speed, and model parameters
     val request = SDKTTSRequest(
       input = text,
@@ -174,7 +174,7 @@ object EdgeAI {
       speed = speed,
       model = "" // Empty model = engine decides
     )
-    
+
     return EdgeAISDK.tts(request)
       .map { response ->
         TtsResponse(
@@ -187,6 +187,27 @@ object EdgeAI {
         Log.e(TAG, "TTS request failed", e)
         throw mapException(e)
       }
+  }
+
+  /**
+   * Stop any ongoing EdgeAI operation (LLM chat, ASR, or TTS).
+   * Sends a cancel/stop signal to the BreezeApp Engine.
+   * Safe to call even if no operation is in progress.
+   *
+   * TODO: Currently the EdgeAI SDK does not expose a stop() or cancel() method.
+   *       When the SDK is updated to include this functionality, uncomment
+   *       the EdgeAISDK.stop() call below to enable operation interruption.
+   *       For now, operations will run to completion.
+   */
+  fun stop() {
+    if (!isInitialized) {
+      Log.d(TAG, "EdgeAI not initialized, skipping stop")
+      return
+    }
+
+    Log.d(TAG, "stop called - waiting for EdgeAI SDK to add stop() support")
+    // TODO: Uncomment when EdgeAI SDK adds stop() or cancel() method
+    // EdgeAISDK.stop()
   }
   
   /**

@@ -49,7 +49,9 @@ class BreezeFloatingWindow private constructor(
     private val onMove: (Int, Int, Int, Int) -> Unit,
     private val onToneChange: (ToneType) -> Unit,
     private val onChatMessage: (String) -> Unit,
-    private val onStopRequest: () -> Unit = {}
+    private val onStopRequest: () -> Unit = {},
+    private val onTtsRequest: (String) -> Unit = {},
+    private val onTtsStop: () -> Unit = {}
 ) {
 
     companion object {
@@ -66,11 +68,14 @@ class BreezeFloatingWindow private constructor(
             onMove: (Int, Int, Int, Int) -> Unit,
             onToneChange: (ToneType) -> Unit,
             onChatMessage: (String) -> Unit = {},
-            onStopRequest: () -> Unit = {}
+            onStopRequest: () -> Unit = {},
+            onTtsRequest: (String) -> Unit = {},
+            onTtsStop: () -> Unit = {}
         ): BreezeFloatingWindow {
             return BreezeFloatingWindow(
                 context, anchorBounds, savedSettings, session,
-                onAccept, onDismiss, onResize, onMove, onToneChange, onChatMessage, onStopRequest
+                onAccept, onDismiss, onResize, onMove, onToneChange, onChatMessage, onStopRequest,
+                onTtsRequest, onTtsStop
             )
         }
     }
@@ -120,6 +125,14 @@ class BreezeFloatingWindow private constructor(
     private var rainbowDrawable: RainbowGradientDrawable? = null
     private var rainbowAnimator: ValueAnimator? = null
 
+    // TTS state and UI
+    enum class TtsState { IDLE, LOADING, PLAYING }
+    private var ttsState: TtsState = TtsState.IDLE
+    private var ttsButton: TextView? = null
+    private var conversationWrapper: FrameLayout? = null
+    private var ttsRainbowDrawable: RainbowGradientDrawable? = null
+    private var ttsRainbowAnimator: ValueAnimator? = null
+
     fun show() {
         remove() // Ensure clean state
 
@@ -133,6 +146,7 @@ class BreezeFloatingWindow private constructor(
         setupResizeHandle()
         setupDraftField()
         setupChatInput()
+        setupTtsButton()
 
         layoutParams = createLayoutParams()
 
@@ -153,6 +167,8 @@ class BreezeFloatingWindow private constructor(
             chatInput = view.findViewById(R.id.breeze_chat_input)
             conversationContainer = view.findViewById(R.id.breeze_conversation_container)
             conversationScroll = view.findViewById(R.id.breeze_conversation_scroll)
+            ttsButton = view.findViewById(R.id.breeze_tts_button)
+            conversationWrapper = view.findViewById(R.id.breeze_conversation_wrapper)
 
             // Setup stop button click handler
             stopButton?.setOnClickListener {
@@ -361,6 +377,114 @@ class BreezeFloatingWindow private constructor(
         }
     }
 
+    private fun setupTtsButton() {
+        ttsButton?.setOnClickListener {
+            when (ttsState) {
+                TtsState.IDLE -> {
+                    // Find latest Charles message to speak
+                    val latestCharlesMessage = conversationHistory
+                        .lastOrNull { !it.isUser }
+                        ?.text
+
+                    if (latestCharlesMessage != null) {
+                        Log.d(TAG, "TTS requested for: '${latestCharlesMessage.take(50)}...'")
+                        setTtsState(TtsState.LOADING)
+                        onTtsRequest(latestCharlesMessage)
+                    } else {
+                        Log.d(TAG, "No Charles message to speak")
+                    }
+                }
+                TtsState.LOADING, TtsState.PLAYING -> {
+                    Log.d(TAG, "TTS stop requested")
+                    onTtsStop()
+                    setTtsState(TtsState.IDLE)
+                }
+            }
+        }
+    }
+
+    /**
+     * Set TTS state and update button appearance.
+     * Call this from BreezeManager when TTS state changes.
+     */
+    fun setTtsState(state: TtsState) {
+        ttsState = state
+        handler.post {
+            when (state) {
+                TtsState.IDLE -> {
+                    ttsButton?.text = "🔊"
+                    ttsButton?.setBackgroundResource(R.drawable.breeze_tts_button_background)
+                    stopTtsAnimation()
+                }
+                TtsState.LOADING -> {
+                    ttsButton?.text = "⏳"
+                    ttsButton?.setBackgroundResource(R.drawable.breeze_tts_button_background)
+                }
+                TtsState.PLAYING -> {
+                    ttsButton?.text = "⏹"
+                    ttsButton?.setBackgroundResource(R.drawable.breeze_tts_button_background_active)
+                    startTtsAnimation()
+                }
+            }
+        }
+    }
+
+    /**
+     * Start rainbow animation on conversation wrapper when TTS is playing.
+     */
+    private fun startTtsAnimation() {
+        conversationWrapper?.let { wrapper ->
+            Log.d(TAG, "Starting TTS rainbow animation")
+
+            if (ttsRainbowDrawable == null) {
+                ttsRainbowDrawable = RainbowGradientDrawable(context)
+            }
+
+            wrapper.foreground = ttsRainbowDrawable
+
+            ttsRainbowAnimator?.cancel()
+            ttsRainbowAnimator = ValueAnimator.ofFloat(0f, 360f).apply {
+                duration = 2000 // Slower cycle for TTS playback
+                repeatCount = ValueAnimator.INFINITE
+                interpolator = LinearInterpolator()
+                addUpdateListener { animation ->
+                    val rotation = animation.animatedValue as Float
+                    ttsRainbowDrawable?.updateAnimation(rotation, AnimationStateType.TYPING)
+                }
+                start()
+            }
+        }
+    }
+
+    /**
+     * Stop TTS rainbow animation.
+     */
+    private fun stopTtsAnimation() {
+        Log.d(TAG, "Stopping TTS rainbow animation")
+        ttsRainbowAnimator?.cancel()
+        ttsRainbowAnimator = null
+        conversationWrapper?.foreground = null
+        ttsRainbowDrawable = null
+    }
+
+    /**
+     * Show the TTS button (call when Charles has responded).
+     */
+    private fun showTtsButton() {
+        handler.post {
+            ttsButton?.visibility = View.VISIBLE
+        }
+    }
+
+    /**
+     * Hide the TTS button.
+     */
+    private fun hideTtsButton() {
+        handler.post {
+            ttsButton?.visibility = View.GONE
+        }
+    }
+
     private fun sendChatMessage() {
         val message = chatInput?.text?.toString()?.trim() ?: ""
         if (message.isNotBlank()) {
@@ -416,9 +540,12 @@ class BreezeFloatingWindow private constructor(
     /**
      * Add a Charles response to conversation with specific response type.
      * Convenience method for adding AI responses.
+     * Also shows the TTS button so user can listen to Charles's response.
      */
     fun addCharlesResponse(text: String, responseType: ResponseType) {
         addToConversation(isUser = false, text = text, responseType = responseType)
+        // Show TTS button when Charles has something to say
+        showTtsButton()
     }
 
     /**
@@ -543,15 +670,10 @@ class BreezeFloatingWindow private constructor(
 
             updateDraft(session.currentSuggestion)
 
-            // Add Charles's response to conversation with appropriate emoji
+            // Add Charles's actual response to conversation (not a generic message)
+            // This ensures TTS speaks the actual response, not a meta-message
             if (session.currentSuggestion.isNotBlank()) {
-                val message = when (responseType) {
-                    ResponseType.TONE -> "I've applied the tone transformation."
-                    ResponseType.HISTORY -> "Here's your message with conversation history."
-                    ResponseType.ASR -> "I've transcribed your voice input."
-                    else -> "Here's an updated draft."
-                }
-                addCharlesResponse(message, responseType)
+                addCharlesResponse(session.currentSuggestion, responseType)
             }
         }
     }
@@ -593,6 +715,12 @@ class BreezeFloatingWindow private constructor(
         try {
             // Stop rainbow animation before removing
             stopRainbowAnimation()
+            // Stop TTS animation and playback
+            stopTtsAnimation()
+            if (ttsState != TtsState.IDLE) {
+                onTtsStop()
+                ttsState = TtsState.IDLE
+            }
 
             windowView?.let {
                 windowManager.removeView(it)
