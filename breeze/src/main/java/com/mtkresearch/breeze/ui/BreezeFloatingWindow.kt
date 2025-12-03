@@ -1,17 +1,27 @@
 package com.mtkresearch.breeze.ui
 
+import android.Manifest
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -21,6 +31,7 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import org.signal.core.util.logging.Log
 import com.mtkresearch.breeze.AISession
 import com.mtkresearch.breeze.R
@@ -28,6 +39,8 @@ import com.mtkresearch.breeze.ToneType
 import com.mtkresearch.breeze.WindowPreferences
 import com.mtkresearch.breeze.rainbow.AnimationStateType
 import com.mtkresearch.breeze.rainbow.RainbowGradientDrawable
+import java.io.File
+import java.io.FileOutputStream
 
 /**
  * Floating conversation window for discussing with Charles (AI).
@@ -51,7 +64,8 @@ class BreezeFloatingWindow private constructor(
     private val onChatMessage: (String) -> Unit,
     private val onStopRequest: () -> Unit = {},
     private val onTtsRequest: (String) -> Unit = {},
-    private val onTtsStop: () -> Unit = {}
+    private val onTtsStop: () -> Unit = {},
+    private val onVoiceRecordingComplete: (File) -> Unit = {}
 ) {
 
     companion object {
@@ -70,12 +84,13 @@ class BreezeFloatingWindow private constructor(
             onChatMessage: (String) -> Unit = {},
             onStopRequest: () -> Unit = {},
             onTtsRequest: (String) -> Unit = {},
-            onTtsStop: () -> Unit = {}
+            onTtsStop: () -> Unit = {},
+            onVoiceRecordingComplete: (File) -> Unit = {}
         ): BreezeFloatingWindow {
             return BreezeFloatingWindow(
                 context, anchorBounds, savedSettings, session,
                 onAccept, onDismiss, onResize, onMove, onToneChange, onChatMessage, onStopRequest,
-                onTtsRequest, onTtsStop
+                onTtsRequest, onTtsStop, onVoiceRecordingComplete
             )
         }
     }
@@ -133,6 +148,21 @@ class BreezeFloatingWindow private constructor(
     private var ttsRainbowDrawable: RainbowGradientDrawable? = null
     private var ttsRainbowAnimator: ValueAnimator? = null
 
+    // Voice input state and UI
+    enum class InputState { NORMAL, RECORDING }
+    private var inputState: InputState = InputState.NORMAL
+    private var sendButton: ImageButton? = null
+    private var inputNormalState: View? = null
+    private var inputRecordingState: View? = null
+    private var recordingPulse: View? = null
+    private var recordingPulseAnimator: AnimatorSet? = null
+
+    // Recording
+    private var audioRecord: AudioRecord? = null
+    private var recordingThread: Thread? = null
+    private var audioFile: File? = null
+    private var isRecording = false
+
     fun show() {
         remove() // Ensure clean state
 
@@ -169,6 +199,12 @@ class BreezeFloatingWindow private constructor(
             conversationScroll = view.findViewById(R.id.breeze_conversation_scroll)
             ttsButton = view.findViewById(R.id.breeze_tts_button)
             conversationWrapper = view.findViewById(R.id.breeze_conversation_wrapper)
+
+            // Voice input views
+            sendButton = view.findViewById(R.id.breeze_chat_send)
+            inputNormalState = view.findViewById(R.id.breeze_input_normal_state)
+            inputRecordingState = view.findViewById(R.id.breeze_input_recording_state)
+            recordingPulse = view.findViewById(R.id.breeze_chat_recording_pulse)
 
             // Setup stop button click handler
             stopButton?.setOnClickListener {
@@ -359,22 +395,265 @@ class BreezeFloatingWindow private constructor(
     }
 
     private fun setupChatInput() {
-        windowView?.let { view ->
-            val sendButton = view.findViewById<ImageButton>(R.id.breeze_chat_send)
-
-            // Send button click
-            sendButton?.setOnClickListener {
-                sendChatMessage()
+        // Text watcher to toggle mic/send icon
+        chatInput?.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                updateSendButtonIcon(s?.toString()?.isNotEmpty() == true)
             }
+        })
 
-            // IME action (keyboard send)
-            chatInput?.setOnEditorActionListener { _, actionId, _ ->
-                if (actionId == EditorInfo.IME_ACTION_SEND) {
-                    sendChatMessage()
-                    true
-                } else false
+        // Initial state: show mic icon (no text)
+        updateSendButtonIcon(false)
+
+        // Send/Mic button click
+        sendButton?.setOnClickListener {
+            val text = chatInput?.text?.toString()?.trim() ?: ""
+            if (text.isNotEmpty()) {
+                // Has text: send message
+                sendChatMessage()
+            } else {
+                // No text: start voice recording
+                startVoiceRecording()
             }
         }
+
+        // Recording state: tap to stop
+        inputRecordingState?.setOnClickListener {
+            if (isRecording) {
+                stopVoiceRecording()
+            }
+        }
+
+        // IME action (keyboard send)
+        chatInput?.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEND) {
+                val text = chatInput?.text?.toString()?.trim() ?: ""
+                if (text.isNotEmpty()) {
+                    sendChatMessage()
+                }
+                true
+            } else false
+        }
+    }
+
+    /**
+     * Update send button icon and background based on whether there's text in the input.
+     * Shows mic icon (light background) when empty, send icon (orange background) when has text.
+     */
+    private fun updateSendButtonIcon(hasText: Boolean) {
+        sendButton?.apply {
+            if (hasText) {
+                setImageResource(R.drawable.ic_send_24)
+                setBackgroundResource(R.drawable.breeze_send_button_background)
+            } else {
+                setImageResource(R.drawable.breeze_rainbow_mic)
+                setBackgroundResource(R.drawable.breeze_mic_button_background)
+            }
+        }
+    }
+
+    // ==================== Voice Recording ====================
+
+    /**
+     * Start voice recording if permission is granted.
+     */
+    private fun startVoiceRecording() {
+        if (!checkRecordPermission()) {
+            Log.w(TAG, "Record permission not granted")
+            return
+        }
+
+        setInputState(InputState.RECORDING)
+        startRecording()
+    }
+
+    /**
+     * Stop voice recording and process the audio.
+     */
+    private fun stopVoiceRecording() {
+        stopRecording()
+        setInputState(InputState.NORMAL)
+    }
+
+    /**
+     * Check if record audio permission is granted.
+     */
+    private fun checkRecordPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    /**
+     * Set the input state (normal or recording).
+     */
+    private fun setInputState(state: InputState) {
+        inputState = state
+        handler.post {
+            when (state) {
+                InputState.NORMAL -> {
+                    inputNormalState?.visibility = View.VISIBLE
+                    inputRecordingState?.visibility = View.GONE
+                    stopRecordingPulseAnimation()
+                }
+                InputState.RECORDING -> {
+                    inputNormalState?.visibility = View.GONE
+                    inputRecordingState?.visibility = View.VISIBLE
+                    startRecordingPulseAnimation()
+                    // Hide keyboard when starting recording
+                    hideKeyboard()
+                }
+            }
+        }
+    }
+
+    /**
+     * Start the actual audio recording.
+     */
+    private fun startRecording() {
+        try {
+            audioFile = File.createTempFile("breeze_chat_recording_", ".pcm", context.cacheDir)
+
+            val sampleRate = 16000
+            val channelConfig = AudioFormat.CHANNEL_IN_MONO
+            val audioFormat = AudioFormat.ENCODING_PCM_16BIT
+            val minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+                Log.e(TAG, "Permission not granted for recording")
+                return
+            }
+
+            audioRecord = AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                sampleRate,
+                channelConfig,
+                audioFormat,
+                minBufferSize * 2
+            )
+
+            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
+                Log.e(TAG, "AudioRecord initialization failed")
+                return
+            }
+
+            audioRecord?.startRecording()
+            isRecording = true
+
+            recordingThread = Thread {
+                writeAudioDataToFile()
+            }
+            recordingThread?.start()
+
+            Log.d(TAG, "Recording started: ${audioFile?.absolutePath}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start recording", e)
+            isRecording = false
+            setInputState(InputState.NORMAL)
+        }
+    }
+
+    /**
+     * Write audio data to file in background thread.
+     */
+    private fun writeAudioDataToFile() {
+        val data = ByteArray(1024)
+        var os: FileOutputStream? = null
+        try {
+            os = FileOutputStream(audioFile)
+            while (isRecording) {
+                val read = audioRecord?.read(data, 0, data.size) ?: 0
+                if (read > 0) {
+                    os.write(data, 0, read)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error writing audio data", e)
+        } finally {
+            try {
+                os?.close()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error closing audio file", e)
+            }
+        }
+    }
+
+    /**
+     * Stop recording and trigger the callback with the audio file.
+     */
+    private fun stopRecording() {
+        if (!isRecording) return
+
+        isRecording = false
+
+        try {
+            audioRecord?.stop()
+            audioRecord?.release()
+            audioRecord = null
+            recordingThread?.join(1000)
+            recordingThread = null
+
+            Log.d(TAG, "Recording stopped: ${audioFile?.absolutePath}")
+
+            // Notify callback with audio file for ASR processing
+            audioFile?.let { file ->
+                if (file.exists() && file.length() > 0) {
+                    onVoiceRecordingComplete(file)
+                } else {
+                    Log.w(TAG, "Recording file is empty or doesn't exist")
+                    file.delete()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping recording", e)
+        }
+    }
+
+    /**
+     * Start pulse animation for recording indicator.
+     */
+    private fun startRecordingPulseAnimation() {
+        stopRecordingPulseAnimation()
+
+        recordingPulse?.let { pulse ->
+            val scaleX = ObjectAnimator.ofFloat(pulse, "scaleX", 1f, 1.3f, 1f)
+            val scaleY = ObjectAnimator.ofFloat(pulse, "scaleY", 1f, 1.3f, 1f)
+            val alpha = ObjectAnimator.ofFloat(pulse, "alpha", 0.6f, 0.2f, 0.6f)
+
+            recordingPulseAnimator = AnimatorSet().apply {
+                playTogether(scaleX, scaleY, alpha)
+                duration = 1000
+                interpolator = AccelerateDecelerateInterpolator()
+                addListener(object : android.animation.AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: android.animation.Animator) {
+                        if (isRecording) {
+                            start()
+                        }
+                    }
+                })
+                start()
+            }
+        }
+    }
+
+    /**
+     * Stop pulse animation for recording indicator.
+     */
+    private fun stopRecordingPulseAnimation() {
+        recordingPulseAnimator?.cancel()
+        recordingPulseAnimator = null
+    }
+
+    /**
+     * Hide keyboard.
+     */
+    private fun hideKeyboard() {
+        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        chatInput?.let { imm.hideSoftInputFromWindow(it.windowToken, 0) }
     }
 
     private fun setupTtsButton() {
@@ -721,6 +1000,16 @@ class BreezeFloatingWindow private constructor(
                 onTtsStop()
                 ttsState = TtsState.IDLE
             }
+            // Stop recording if in progress
+            if (isRecording) {
+                isRecording = false
+                audioRecord?.stop()
+                audioRecord?.release()
+                audioRecord = null
+                audioFile?.delete()
+                audioFile = null
+            }
+            stopRecordingPulseAnimation()
 
             windowView?.let {
                 windowManager.removeView(it)

@@ -156,7 +156,8 @@ class BreezeManager private constructor(
           onChatMessage = { message -> onChatMessageReceived(message, inputBounds) },
           onStopRequest = ::onStopRequested,
           onTtsRequest = ::onTtsRequested,
-          onTtsStop = ::onTtsStopRequested
+          onTtsStop = ::onTtsStopRequested,
+          onVoiceRecordingComplete = { audioFile -> onFloatingWindowVoiceRecording(audioFile, inputBounds) }
         )
 
         floatingWindow?.show()
@@ -705,7 +706,8 @@ class BreezeManager private constructor(
             onChatMessage = { message -> onChatMessageReceived(message, anchorBounds) },
             onStopRequest = ::onStopRequested,
             onTtsRequest = ::onTtsRequested,
-            onTtsStop = ::onTtsStopRequested
+            onTtsStop = ::onTtsStopRequested,
+            onVoiceRecordingComplete = { audioFile -> onFloatingWindowVoiceRecording(audioFile, anchorBounds) }
           )
 
           floatingWindow?.show()
@@ -734,6 +736,81 @@ class BreezeManager private constructor(
         }
       } catch (e: Exception) {
         Log.e(TAG, "Error showing floating window", e)
+      }
+    }
+  }
+
+  /**
+   * Handle voice recording completion from the floating window.
+   * Process with ASR, then send the transcribed text to Charles.
+   */
+  private fun onFloatingWindowVoiceRecording(audioFile: java.io.File, anchorBounds: Rect) {
+    scope.launch {
+      try {
+        Log.d(TAG, "Processing voice recording from floating window: ${audioFile.absolutePath}")
+
+        // Read audio file into ByteArray
+        val audioData = audioFile.readBytes()
+        Log.d(TAG, "Read audio file: size=${audioData.size} bytes")
+
+        // Use AsrUseCase to transcribe audio
+        val asrUseCase = AsrUseCase()
+        var transcribedText = ""
+
+        // Collect ASR streaming results
+        asrUseCase.execute(
+          audioData = audioData,
+          format = "pcm",
+          sampleRate = 16000,
+          language = "en"
+        ).collect { partialText ->
+          transcribedText = partialText
+          Log.d(TAG, "ASR partial result: $partialText")
+        }
+
+        Log.d(TAG, "ASR complete: $transcribedText")
+
+        // Clean up audio file
+        audioFile.delete()
+
+        // Validate transcription result
+        if (transcribedText.isBlank()) {
+          Log.w(TAG, "ASR returned empty transcription")
+          return@launch
+        }
+
+        // Add user's voice message to conversation (with voice indicator)
+        floatingWindow?.addToConversation(
+          isUser = true,
+          text = transcribedText,
+          responseType = BreezeFloatingWindow.ResponseType.USER_VOICE
+        )
+
+        // Now process with Charles (same as text chat)
+        currentSession?.let { session ->
+          val currentDraft = floatingWindow?.getCurrentDraft() ?: ""
+          val conversationHistory = floatingWindow?.getConversationHistoryForLLM() ?: ""
+
+          session.setStreamingCallback { partialText ->
+            floatingWindow?.updateStreamingText(partialText)
+          }
+
+          session.setCompletionCallback { finalText ->
+            Log.d(TAG, "Voice chat response completed: ${finalText.take(50)}...")
+            floatingWindow?.updateSession(session, BreezeFloatingWindow.ResponseType.LLM)
+          }
+
+          Log.d(TAG, "Voice chat with Charles: message='$transcribedText'")
+
+          session.chat(
+            userMessage = transcribedText,
+            conversationHistory = conversationHistory.takeIf { it.isNotBlank() },
+            currentDraft = currentDraft.takeIf { it.isNotBlank() }
+          )
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Error processing voice recording", e)
+        audioFile.delete()
       }
     }
   }

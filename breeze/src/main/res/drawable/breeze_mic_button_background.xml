@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <!-- Light orange (close to white) background with orange border for mic button -->
+    <solid android:color="#FFF8E1"/>
+    <stroke android:width="1.5dp" android:color="#FF9800"/>
+</shape>
