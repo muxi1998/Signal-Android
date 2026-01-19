@@ -128,7 +128,7 @@ import org.thoughtcrime.securesms.badges.gifts.OpenableGiftItemDecoration
 import org.thoughtcrime.securesms.badges.gifts.viewgift.received.ViewReceivedGiftBottomSheet
 import org.thoughtcrime.securesms.badges.gifts.viewgift.sent.ViewSentGiftBottomSheet
 import org.thoughtcrime.securesms.billing.upgrade.UpgradeToStartMediaBackupSheet
-import com.mtkresearch.breeze.api.BreezeRegistry
+
 import org.thoughtcrime.securesms.calls.YouAreAlreadyInACallSnackbar
 import org.thoughtcrime.securesms.components.AnimatingToggle
 import org.thoughtcrime.securesms.components.ComposeText
@@ -570,10 +570,7 @@ class ConversationFragment :
   private var menuProvider: ConversationOptionsMenu.Provider? = null
   private var scrollListener: ScrollListener? = null
   private var progressDialog: ProgressCardDialogFragment? = null
-  // Breeze UI hook for AI assistant via registry
-  private val breezeUiHook by lazy {
-    BreezeRegistry.uiHook
-  }
+
 
   private val jumpAndPulseScrollStrategy = object : ScrollToPositionDelegate.ScrollStrategy {
     override fun performScroll(recyclerView: RecyclerView, layoutManager: LinearLayoutManager, position: Int, smooth: Boolean) {
@@ -753,6 +750,8 @@ class ConversationFragment :
     if (SignalStore.rateLimit.needsRecaptcha()) {
       RecaptchaProofBottomSheetFragment.show(childFragmentManager)
     }
+
+
   }
 
   override fun onPause() {
@@ -773,6 +772,8 @@ class ConversationFragment :
     inputPanel.onPause()
 
     EventBus.getDefault().unregister(this)
+
+
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {
@@ -787,12 +788,10 @@ class ConversationFragment :
       requireActivity().unregisterReceiver(pinnedShortcutReceiver)
     }
 
-    // Cleanup Breeze AI Assistant
-    breezeUiHook?.setCurrentActivity(null)
-    breezeUiHook?.cleanup()
+
 
     // Cleanup rainbow animation
-    stopRainbowAnimation()
+
   }
 
   @Suppress("OVERRIDE_DEPRECATION")
@@ -1129,8 +1128,7 @@ class ConversationFragment :
       Log.d("ConversationFragment", "ComposeText setup complete - focus listener attached: ${onFocusChangeListener != null}")
     }
 
-    // Initialize Breeze AI Floating Assistant
-    initializeBreezeAI()
+
 
     sendButton.apply {
       setPopupContainer(binding.root)
@@ -1365,53 +1363,7 @@ class ConversationFragment :
     }
   }
 
-  private fun initializeBreezeAI() {
-    try {
-      Log.d("ConversationFragment", "Initializing Breeze AI...")
 
-      // Set current Activity for popup display
-      breezeUiHook?.setCurrentActivity(requireActivity())
-
-      // Set current thread ID for HistoryInJSON feature
-      breezeUiHook?.setCurrentThreadId(args.threadId)
-
-      Log.d("ConversationFragment", "Checking Breeze AI permissions...")
-
-      // Check if we have overlay permissions
-      if (android.provider.Settings.canDrawOverlays(requireContext())) {
-        Log.d("ConversationFragment", "Permissions granted, initializing Breeze callbacks...")
-
-        // Register callbacks with BreezeUiHook via registry
-        breezeUiHook?.setTextInjectionCallback { textToInject ->
-          this@ConversationFragment.injectTextIntoComposeField(textToInject)
-        }
-
-        breezeUiHook?.setTextRetrievalCallback {
-          composeText.textTrimmed.toString()
-        }
-
-        breezeUiHook?.setRainbowAnimationCallback {
-          this@ConversationFragment.triggerRainbowAnimationAfterAIInjection()
-        }
-
-        // Voice input callback - trigger ASR when user selects voice option
-        breezeUiHook?.setVoiceInputCallback {
-          this@ConversationFragment.triggerVoiceInputForBreeze()
-        }
-
-        // Focus input callback - focus compose text when user selects text option
-        breezeUiHook?.setFocusInputCallback {
-          this@ConversationFragment.focusComposeTextForBreeze()
-        }
-
-        Log.d("ConversationFragment", "Breeze AI callbacks registered successfully: ${breezeUiHook != null}")
-      } else {
-        Log.w("ConversationFragment", "Overlay permissions not granted for Breeze AI")
-      }
-    } catch (e: Exception) {
-      Log.e("ConversationFragment", "Failed to initialize Breeze AI", e)
-    }
-  }
 
   private fun presentStoryRing() {
     if (SignalStore.story.isFeatureDisabled) {
@@ -2142,7 +2094,7 @@ class ConversationFragment :
     afterSendComplete: () -> Unit = {}
   ) {
     // Stop rainbow animation when message is being sent
-    stopRainbowAnimation()
+
     val threadRecipient = viewModel.recipientSnapshot
 
     if (threadRecipient == null) {
@@ -4343,11 +4295,7 @@ class ConversationFragment :
       Log.d("ConversationFragment", ">>>>>> onClick called on: $v")
       container.showSoftkey(composeText)
 
-      // TEMPORARY: Test sparkle manually on any click
-      if (v == composeText) {
-        Log.d("ConversationFragment", ">>>>>> ComposeText clicked - testing sparkle manually")
-        handleAIAssistantOnFocusChange(v, true)
-      }
+
     }
 
     override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {
@@ -4373,16 +4321,8 @@ class ConversationFragment :
     override fun onFocusChange(v: View, hasFocus: Boolean) {
       Log.d("ConversationFragment", ">>>>>> onFocusChange called: hasFocus=$hasFocus, view=$v")
 
-      if (hasFocus) { // && container.getCurrentInput() == emojiDrawerStub.get()) {
+      if (hasFocus) {
         container.showSoftkey(composeText)
-
-        // Show AI sparkle icon when text field gets focus
-        Log.d("ConversationFragment", ">>>>>> Focus gained, calling handleAIAssistantOnFocusChange")
-        handleAIAssistantOnFocusChange(v, hasFocus)
-      } else {
-        // Hide AI elements when focus is lost
-        Log.d("ConversationFragment", ">>>>>> Focus lost, calling handleAIAssistantOnFocusChange")
-        handleAIAssistantOnFocusChange(v, hasFocus)
       }
     }
 
@@ -4394,13 +4334,7 @@ class ConversationFragment :
       handleSaveDraftOnTextChange(composeText.textTrimmed)
       handleTypingIndicatorOnTextChange(s.toString())
 
-      // Trigger AI assistant when user is actively typing
-      handleAIAssistantOnTextChange(s.toString(), start, before, count)
-      
-      // Stop rainbow animation if text is cleared (becomes empty)
-      if (s.isEmpty()) {
-        stopRainbowAnimation()
-      }
+
     }
 
     private fun handleSaveDraftOnTextChange(text: CharSequence) {
@@ -4432,229 +4366,16 @@ class ConversationFragment :
       previousText = text
     }
 
-    private fun handleAIAssistantOnFocusChange(view: View, hasFocus: Boolean) {
-      Log.d("ConversationFragment", "====================================")
-      Log.d("ConversationFragment", "handleAIAssistantOnFocusChange called:")
-      Log.d("ConversationFragment", "  hasFocus: $hasFocus")
-      Log.d("ConversationFragment", "  breezeUiHook: ${breezeUiHook != null}")
-      Log.d("ConversationFragment", "  view: $view")
-      Log.d("ConversationFragment", "====================================")
-
-      // Initialize Breeze callbacks on first focus
-      if (hasFocus) {
-        initializeBreezeAI()
-        setupBreezeIcons()
-      }
-
-      breezeUiHook?.let { hook ->
-        try {
-          if (!hasFocus) {
-            Log.d("ConversationFragment", "AI Assistant: Text field focus lost")
-            hook.hideAll()
-            hideBreezeIcons()
-          }
-        } catch (e: Exception) {
-          Log.e("ConversationFragment", "AI Assistant focus handling error", e)
-        }
-      } ?: run {
-        if (hasFocus) {
-          Log.w("ConversationFragment", "BreezeUiHook is null - check feature flags")
-        } else {
-          Log.d("ConversationFragment", "BreezeUiHook is null, but focus lost - no action needed")
-        }
-      }
-    }
-
-
-
-    private fun handleAIAssistantOnTextChange(text: String, start: Int, before: Int, count: Int) {
-      // Update icon visibility based on text presence
-      updateBreezeIconVisibility()
-    }
-
-    private fun setupBreezeIcons() {
-      val penButton = inputPanel.breezeRainbowPenButton
-      val micButton = inputPanel.breezeRainbowMicButton
-
-      if (penButton == null || micButton == null) {
-        Log.w("ConversationFragment", "Breeze icon buttons not found in InputPanel")
-        return
-      }
-
-      penButton.setOnClickListener {
-        // Get fresh bounds at click time (important for keyboard state changes)
-        val bounds = Rect()
-        composeText.getGlobalVisibleRect(bounds)
-        val currentText = composeText.textTrimmed.toString()
-        Log.d("ConversationFragment", "Rainbow pen tapped, text: '$currentText', bounds: $bounds")
-        breezeUiHook?.onContextualIconTapped(bounds, currentText)
-      }
-
-      micButton.setOnClickListener {
-        // Get fresh bounds at click time (important for keyboard state changes)
-        val bounds = Rect()
-        micButton.getGlobalVisibleRect(bounds)
-        Log.d("ConversationFragment", "Rainbow mic tapped, bounds: $bounds")
-        breezeUiHook?.onContextualIconTapped(bounds, "")
-      }
-
-      updateBreezeIconVisibility()
-    }
-
-    private fun updateBreezeIconVisibility() {
-      val penButton = inputPanel.breezeRainbowPenButton
-      val micButton = inputPanel.breezeRainbowMicButton
-
-      if (penButton == null || micButton == null) {
-        return
-      }
-
-      val hasText = composeText.textTrimmed.isNotEmpty()
-
-      penButton.visibility = if (hasText) View.VISIBLE else View.GONE
-      micButton.visibility = if (!hasText) View.VISIBLE else View.GONE
-
-      Log.d("ConversationFragment", "Updated icon visibility: hasText=$hasText")
-    }
-
-    private fun hideBreezeIcons() {
-      inputPanel.breezeRainbowPenButton?.visibility = View.GONE
-      inputPanel.breezeRainbowMicButton?.visibility = View.GONE
-    }
-
     override fun onStylingChanged() {
       handleSaveDraftOnTextChange(composeText.textTrimmed)
     }
   }
 
+
+
   //endregion Compose + Send Callbacks
 
-  //region Breeze AI Text Injection
 
-  /**
-   * Inject AI-generated text into the compose field with visual feedback.
-   * Called by BreezeManager when user accepts a suggestion via slide-down gesture.
-   */
-  private fun injectTextIntoComposeField(textToInject: String) {
-    try {
-      // IMMEDIATE text injection - no runOnUiThread wrapper since callback is already on main thread
-      
-      // Replace the current text with the AI suggestion FIRST (fastest operation)
-      composeText.text?.clear()
-      composeText.text?.insert(0, textToInject)
-      composeText.setSelection(textToInject.length)
-      
-      // ASYNC operations after text injection for better responsiveness
-      composeText.post {
-        // Show visual feedback AFTER text is injected
-        addVisualFeedbackForTextInjection()
-        
-        // Keyboard operations happen asynchronously
-        container.showSoftkey(composeText)
-        composeText.requestFocus()
-      }
-      
-    } catch (e: Exception) {
-      Log.e("ConversationFragment", "Error in text injection", e)
-    }
-  }
-  
-  /**
-   * Add visual feedback (orange glow) to input field during text injection per spec.
-   */
-  private fun addVisualFeedbackForTextInjection() {
-    try {
-      // Fast orange glow effect per spec (Line 162: "Input field glows orange")  
-      val originalBackground = composeText.background
-      
-      // Apply orange tint immediately
-      composeText.setBackgroundColor(0x28FF8C00) // Pre-computed ARGB color
-      
-      // Remove glow after 200ms (reduced from 300ms for snappier feel)
-      composeText.postDelayed({
-        composeText.background = originalBackground
-      }, 200)
-      
-    } catch (e: Exception) {
-      Log.e("ConversationFragment", "Error adding visual feedback", e)
-    }
-  }
-  
-  // Rainbow animation placeholder
-  private var rainbowAnimationActive: Boolean = false
-  
-  /**
-   * Trigger rainbow animation after AI text injection.
-   * This method is called only when AI suggestions are accepted and injected - not for manual typing.
-   * Animation covers the entire input panel and persists until message is sent or text is cleared.
-   */
-  private fun triggerRainbowAnimationAfterAIInjection() {
-    try {
-      Log.d("ConversationFragment", "Rainbow animation triggered (placeholder)")
-      rainbowAnimationActive = true
-      // TODO: Implement rainbow animation
-    } catch (e: Exception) {
-      Log.e("ConversationFragment", "Error triggering rainbow animation", e)
-    }
-  }
-  
-  /**
-   * Stop rainbow animation when message is sent or text is cleared
-   */
-  private fun stopRainbowAnimation() {
-    try {
-      if (rainbowAnimationActive) {
-        Log.d("ConversationFragment", "Stopping rainbow animation (placeholder)")
-        rainbowAnimationActive = false
-      }
-    } catch (e: Exception) {
-      Log.e("ConversationFragment", "Error stopping rainbow animation", e)
-    }
-  }
-
-  /**
-   * Trigger voice input (ASR) for Breeze AI.
-   * Called when user selects voice option from input choice popup.
-   */
-  private fun triggerVoiceInputForBreeze() {
-    Log.d("ConversationFragment", "Triggering voice input for Breeze AI")
-    try {
-      // TODO: Integrate with actual ASR system
-      // For now, trigger the existing microphone recorder
-      // The transcribed text should call breezeUiHook?.onVoiceInputComplete() when ready
-
-      val bounds = Rect()
-      composeText.getGlobalVisibleRect(bounds)
-
-      // Start voice recording - this is a placeholder
-      // In a full implementation, you would:
-      // 1. Start ASR recording
-      // 2. When transcription is complete, call:
-      //    breezeUiHook?.onVoiceInputComplete(bounds, transcribedText)
-
-      // For now, just focus the input as a fallback
-      Log.w("ConversationFragment", "ASR not fully implemented - focusing input instead")
-      focusComposeTextForBreeze()
-    } catch (e: Exception) {
-      Log.e("ConversationFragment", "Error triggering voice input", e)
-    }
-  }
-
-  /**
-   * Focus the compose text field for Breeze AI.
-   * Called when user selects text option from input choice popup.
-   */
-  private fun focusComposeTextForBreeze() {
-    Log.d("ConversationFragment", "Focusing compose text for Breeze AI")
-    try {
-      composeText.requestFocus()
-      container.showSoftkey(composeText)
-    } catch (e: Exception) {
-      Log.e("ConversationFragment", "Error focusing compose text", e)
-    }
-  }
-
-  //endregion Breeze AI Text Injection
 
   //region Input Panel Callbacks
 

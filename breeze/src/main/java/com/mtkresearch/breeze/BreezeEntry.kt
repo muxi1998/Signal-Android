@@ -24,13 +24,7 @@ object BreezeEntry {
     
     synchronized(this) {
       if (!initialized) {
-        // Register UI hook implementation
-        val uiHook = BreezeUiHookImpl(context.applicationContext)
-        BreezeRegistry.register(
-          dataProvider = BreezeRegistry.dataProvider, // Keep existing data provider from app
-          uiHook = uiHook
-        )
-        
+        // UI Hook removed for minimal Breeze version
         initialized = true
       }
     }

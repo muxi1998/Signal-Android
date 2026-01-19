@@ -44,3 +44,4 @@ specs/app/playProd/release/*.aab
 app/playProd/
 specs/
 app/breezePlayProd/release/*.aab
+007_Breeze_Messenger/
