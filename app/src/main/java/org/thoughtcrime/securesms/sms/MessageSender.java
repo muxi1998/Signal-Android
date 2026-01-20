@@ -226,6 +226,29 @@ public class MessageSender {
       Log.d(TAG, "[MR_util] Detected JSON-transformed outgoing message for feasibility study");
     }
 
+    if (message.getBody() != null && message.getBody().startsWith("@ai")) {
+      Log.i(TAG, "Intercepted AI command: " + message.getBody());
+      
+      // Insert into DB so user sees their command
+      try {
+        ThreadTable  threadTable = SignalDatabase.threads();
+        MessageTable database    = SignalDatabase.messages();
+        long         allocatedThreadId = threadTable.getOrCreateValidThreadId(message.getThreadRecipient(), threadId, message.getDistributionType());
+        Recipient    recipient         = message.getThreadRecipient();
+        InsertResult insertResult      = database.insertMessageOutbox(applyUniversalExpireTimerIfNecessary(context, recipient, message, allocatedThreadId), allocatedThreadId, true, insertListener);
+        long         messageId         = insertResult.getMessageId();
+        
+        // Mark as sent immediately since it's an internal command
+        database.markAsSent(messageId, true);
+        threadTable.update(allocatedThreadId, true, true);
+        
+        org.thoughtcrime.securesms.breeze.FakeAIResponder.onAiCommand(context, message, allocatedThreadId);
+        return allocatedThreadId;
+      } catch (MmsException e) {
+        Log.w(TAG, "Failed to insert intercepted message", e);
+      }
+    }
+
     try {
       ThreadTable  threadTable = SignalDatabase.threads();
       MessageTable database    = SignalDatabase.messages();
