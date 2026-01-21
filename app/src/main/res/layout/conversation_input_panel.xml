@@ -182,18 +182,7 @@
         app:layout_constraintEnd_toEndOf="@id/compose_bubble"
         app:layout_constraintTop_toBottomOf="@id/compose_bubble_top_elements">
 
-        <ImageButton
-            android:id="@+id/breeze_rainbow_mic"
-            android:layout_width="24dp"
-            android:layout_height="match_parent"
-            android:layout_gravity="center_vertical"
-            android:layout_marginEnd="16dp"
-            android:background="@null"
-            android:contentDescription="@string/ConversationActivity_breeze_ai_assistant"
-            android:foreground="?selectableItemBackgroundBorderless"
-            android:scaleType="fitCenter"
-            android:visibility="gone"
-            app:srcCompat="@drawable/breeze_rainbow_mic" />
+
 
 
         <ImageButton
@@ -235,18 +224,7 @@
         app:layout_constraintEnd_toEndOf="@id/compose_bubble"
         app:layout_constraintTop_toBottomOf="@id/compose_bubble_top_elements">
 
-        <ImageButton
-            android:id="@+id/breeze_rainbow_pen"
-            android:layout_width="24dp"
-            android:layout_height="@dimen/conversation_compose_height"
-            android:layout_gravity="bottom"
-            android:layout_marginEnd="16dp"
-            android:background="@null"
-            android:contentDescription="@string/ConversationActivity_breeze_ai_assistant"
-            android:foreground="?selectableItemBackgroundBorderless"
-            android:scaleType="fitCenter"
-            android:visibility="gone"
-            app:srcCompat="@drawable/breeze_rainbow_pen" />
+
 
         <ImageButton
             android:id="@+id/inline_attachment_button"

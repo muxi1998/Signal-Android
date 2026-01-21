@@ -44,3 +44,7 @@ specs/app/playProd/release/*.aab
 app/playProd/
 specs/
 app/breezePlayProd/release/*.aab
+*.apk
+*.aab
+*.dm
+release/
