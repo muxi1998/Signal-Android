@@ -16,7 +16,7 @@ object FakeAIResponder {
     fun onAiCommand(context: Context, userMessage: OutgoingMessage, threadId: Long) {
         val body = userMessage.body ?: return
 
-        Log.i(TAG, "Received AI command: $body")
+        Log.i(TAG, "Received AI command (Fake): $body")
 
         if (body.startsWith("@ai yes")) {
             handleConfirmation(context)
@@ -26,11 +26,12 @@ object FakeAIResponder {
             return
         }
 
-        val responseText = generateResponse(body, userMessage, threadId)
+        // Always generate fake response
+        val responseText = generateFakeResponse(body, userMessage, threadId)
         sendAiResponse(context, responseText, threadId)
     }
 
-    private fun handleConfirmation(context: Context) {
+    internal fun handleConfirmation(context: Context) {
         val draftManager = DraftManager.getInstance()
         if (draftManager.hasPendingDraft()) {
             val draft = draftManager.pendingDraft
@@ -48,7 +49,7 @@ object FakeAIResponder {
         }
     }
 
-    private fun handleRejection(context: Context) {
+    internal fun handleRejection(context: Context) {
         val draftManager = DraftManager.getInstance()
         if (draftManager.hasPendingDraft()) {
             val threadId = draftManager.pendingThreadId
@@ -57,17 +58,17 @@ object FakeAIResponder {
         }
     }
 
-    private fun generateResponse(command: String, originalMessage: OutgoingMessage, threadId: Long): String {
+    private fun generateFakeResponse(command: String, originalMessage: OutgoingMessage, threadId: Long): String {
         return when {
             command.startsWith("@ai translate:") -> {
                 val textToTranslate = command.substring("@ai translate:".length).trim()
-                "[AI] Translation: $textToTranslate"
+                "[AI Mock] Translation: $textToTranslate"
             }
             command.startsWith("@ai summarize") -> {
-                "[AI] Summary: This conversation is about testing the new Breeze capabilities."
+                "[AI Mock] Summary: This conversation is about testing."
             }
             command.startsWith("@ai help") -> {
-                "[AI] Available commands:\n- @ai translate: [text]\n- @ai summarize\n- @ai tell [name] [message] (Draft mode)\n- @ai help"
+                "[AI Mock] Commands: @ai chat, translate, summarize, tell, help"
             }
             command.startsWith("@ai tell") -> {
                 val content = command.substring("@ai tell".length).trim()
@@ -94,10 +95,10 @@ object FakeAIResponder {
                 )
                 
                 DraftManager.getInstance().setPendingDraft(pendingDraft, threadId)
-                
-                "[AI] I've drafted: \"$content\". Send? @ai yes/no"
+
+                "[AI Mock] Drafted: \"$content\". Send? @ai yes/no"
             }
-            else -> "[AI] Unknown command. Type '@ai help' for options."
+            else -> "[AI Mock] Unknown command."
         }
     }
     
@@ -123,7 +124,7 @@ object FakeAIResponder {
             SignalDatabase.messages.insertMessageInbox(incomingMessage, threadId)
             
             // Notify thread update
-             SignalDatabase.threads.update(threadId, true, true)
+            SignalDatabase.threads.update(threadId, true, true)
              
         } catch (e: Exception) {
             Log.e(TAG, "Failed to insert AI response", e)
