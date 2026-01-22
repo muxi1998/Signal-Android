@@ -95,7 +95,7 @@ object EdgeAIClient {
      * 
      * Therefor, we need 'Context' to resolve the 'Uri' and read the file content into a 'ByteArray'.
      */
-    suspend fun asr(context: Context, audioUri: Uri): Result<String> {
+    fun asr(context: Context, audioUri: Uri): Result<String> {
         Log.d(TAG, "Fake ASR requested for URI: $audioUri")
         
         try {
