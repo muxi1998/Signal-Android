@@ -4779,10 +4779,11 @@ class ConversationFragment :
 
         if (result.isSuccess) {
           val transcribedText = result.getOrNull()
+          val compostTextDraft = "@ai ${transcribedText}"
           
           if (!transcribedText.isNullOrEmpty()) {
             requireActivity().runOnUiThread {
-              composeText.setText(transcribedText)
+              composeText.setText(compostTextDraft)
               inputPanel.voiceNoteDraft = null
               draftViewModel.deleteVoiceNoteDraft()
             }
