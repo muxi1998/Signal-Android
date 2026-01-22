@@ -4773,6 +4773,26 @@ class ConversationFragment :
     }
 
     override fun sendVoiceNote(draft: VoiceNoteDraft) {
+      // Breeze ASR Interception
+      if (com.mtkresearch.breeze.BreezeConfig.FEATURE_ENABLED) {
+        val result = com.mtkresearch.breeze.EdgeAIClient.asr(requireContext(), draft.uri)
+
+        if (result.isSuccess) {
+          val transcribedText = result.getOrNull()
+          
+          if (!transcribedText.isNullOrEmpty()) {
+            requireActivity().runOnUiThread {
+              composeText.setText(transcribedText)
+              inputPanel.voiceNoteDraft = null
+              draftViewModel.deleteVoiceNoteDraft()
+            }
+            return
+          }
+        } else {
+           org.signal.core.util.logging.Log.w("BreezeASR", "ASR Failed", result.exceptionOrNull())
+        }
+      }
+
       val audioSlide = AudioSlide(draft.uri, draft.size, MediaUtil.AUDIO_AAC, true)
 
       sendMessageWithoutComposeInput(
