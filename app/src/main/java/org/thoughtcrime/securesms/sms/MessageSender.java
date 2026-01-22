@@ -242,7 +242,7 @@ public class MessageSender {
         database.markAsSent(messageId, true);
         threadTable.update(allocatedThreadId, true, true);
         
-        org.thoughtcrime.securesms.breeze.FakeAIResponder.onAiCommand(context, message, allocatedThreadId);
+        org.thoughtcrime.securesms.breeze.BreezeAIResponder.onAiCommand(context, message, allocatedThreadId);
         return allocatedThreadId;
       } catch (MmsException e) {
         Log.w(TAG, "Failed to insert intercepted message", e);

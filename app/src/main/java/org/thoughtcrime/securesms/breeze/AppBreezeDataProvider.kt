@@ -8,6 +8,9 @@ import org.signal.core.util.logging.Log
 import org.signal.core.util.requireLong
 import org.signal.core.util.requireString
 import org.thoughtcrime.securesms.database.SignalDatabase
+import org.thoughtcrime.securesms.recipients.Recipient
+import org.thoughtcrime.securesms.recipients.RecipientId
+import org.thoughtcrime.securesms.database.model.MmsMessageRecord
 
 /**
  * App-side implementation of BreezeDataProvider.
@@ -38,11 +41,15 @@ class AppBreezeDataProvider(private val context: Context) : BreezeDataProvider {
   override fun getMessageSummary(messageId: Long): MessageSummary? {
     return try {
       val messageRecord = SignalDatabase.messages.getMessageRecord(messageId)
+      val sender = messageRecord.fromRecipient
 
       MessageSummary(
-        id = messageId,
-        body = messageRecord.body,
-        sender = messageRecord.fromRecipient.getDisplayName(context),
+        messageId = messageId,
+        threadId = messageRecord.threadId,
+        messageBody = messageRecord.body,
+        senderDisplayName = sender.getDisplayName(context),
+        isFromLocalUser = sender.isSelf,
+        quotedMessageBody = (messageRecord as? MmsMessageRecord)?.quote?.displayText?.toString(),
         timestamp = messageRecord.timestamp
       )
     } catch (e: Exception) {
@@ -57,15 +64,24 @@ class AppBreezeDataProvider(private val context: Context) : BreezeDataProvider {
       
       SignalDatabase.messages.getConversation(conversationId, 0, limit.toLong()).use { cursor ->
         while (cursor.moveToNext()) {
-          val senderId = cursor.requireLong("from_recipient_id").toString()
+            
+          val id = cursor.requireLong("_id")
+          val threadId = cursor.requireLong("thread_id")
+          val senderId = cursor.requireLong("from_recipient_id")
           val body = cursor.requireString("body") ?: ""
           val timestamp = cursor.requireLong("date_received")
+          val quoteBody = cursor.requireString("quote_body")
+          
+          val senderRecipient = Recipient.resolved(RecipientId.from(senderId))
           
           if (body.isNotEmpty()) {
             messages.add(MessageSummary(
-              id = cursor.requireLong("_id"),
-              body = body,
-              sender = senderId,
+              messageId = id,
+              threadId = threadId,
+              messageBody = body,
+              senderDisplayName = senderRecipient.getDisplayName(context),
+              isFromLocalUser = senderRecipient.isSelf,
+              quotedMessageBody = quoteBody,
               timestamp = timestamp
             ))
           }

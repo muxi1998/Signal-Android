@@ -10,9 +10,12 @@ data class ConversationSummary(
 )
 
 data class MessageSummary(
-  val id: Long,
-  val body: String?,
-  val sender: String?,
+  val messageId: Long,
+  val threadId: Long,
+  val messageBody: String?,
+  val senderDisplayName: String?,
+  val isFromLocalUser: Boolean,
+  val quotedMessageBody: String?,
   val timestamp: Long
 )
 
