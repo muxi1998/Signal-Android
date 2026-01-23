@@ -31,8 +31,8 @@ val maxHotfixVersions = 100
 // - breezeReleaseNumber: Increment for each breezePlay release (resets to 1 when upstream updates)
 // - breezeVersionName: Your semantic version (major.minor.patch)
 // - breezeReleaseStage: "alpha", "beta", "rc", or "" for stable
-val breezeReleaseNumber = 7
-val breezeVersionName = "0.7.0"
+val breezeReleaseNumber = 9
+val breezeVersionName = "0.9.0"
 val breezeReleaseStage = "beta"
 val maxBreezeReleases = 1000  // Reserve space for releases per upstream version
 
