@@ -18,7 +18,7 @@ object BreezeConfig {
   
   // EdgeAI Configuration
   /** Maximum number of conversation history messages to send to LLM for context */
-  const val EDGEAI_HISTORY_LIMIT = 10
+  const val EDGEAI_HISTORY_LIMIT = 50
   
   /** Timeout in milliseconds for EdgeAI initialization */
   const val EDGEAI_INIT_TIMEOUT_MS = 10000L

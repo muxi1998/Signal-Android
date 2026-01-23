@@ -4775,23 +4775,28 @@ class ConversationFragment :
     override fun sendVoiceNote(draft: VoiceNoteDraft) {
       // Breeze ASR Interception
       if (com.mtkresearch.breeze.BreezeConfig.FEATURE_ENABLED) {
-        val result = com.mtkresearch.breeze.EdgeAIClient.asr(requireContext(), draft.uri)
+        val context = requireContext()
+        val lifecycleScope = viewLifecycleOwner.lifecycleScope
+        
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val result = org.thoughtcrime.securesms.breeze.BreezeAIResponder.transcribeVoiceNote(context, draft.uri)
 
-        if (result.isSuccess) {
-          val transcribedText = result.getOrNull()
-          val compostTextDraft = "@ai ${transcribedText}"
-          
-          if (!transcribedText.isNullOrEmpty()) {
-            requireActivity().runOnUiThread {
-              composeText.setText(compostTextDraft)
-              inputPanel.voiceNoteDraft = null
-              draftViewModel.deleteVoiceNoteDraft()
+            if (result.isSuccess) {
+              val transcribedText = result.getOrNull()
+              val compostTextDraft = "@ai ${transcribedText}"
+              
+              if (!transcribedText.isNullOrEmpty()) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                  composeText.setText(compostTextDraft)
+                  inputPanel.voiceNoteDraft = null
+                  draftViewModel.deleteVoiceNoteDraft()
+                }
+              }
+            } else {
+               org.signal.core.util.logging.Log.w("BreezeASR", "ASR Failed", result.exceptionOrNull())
             }
-            return
-          }
-        } else {
-           org.signal.core.util.logging.Log.w("BreezeASR", "ASR Failed", result.exceptionOrNull())
         }
+        return // Return immediately to prevent sending the original voice note while processing
       }
 
       val audioSlide = AudioSlide(draft.uri, draft.size, MediaUtil.AUDIO_AAC, true)
