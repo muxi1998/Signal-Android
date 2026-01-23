@@ -27,16 +27,50 @@ object BreezeAIResponder {
         val body = userMessage.body ?: return
         Log.i(TAG, "Received AI command (Real): $body")
 
-        if (body.startsWith("@ai yes")) {
-            handleConfirmation(context, threadId)
-            return
-        } else if (body.startsWith("@ai no")) {
-            handleRejection(context, threadId)
-            return
+        if (body.startsWith("@ai", ignoreCase = true)) {
+            val command = parseCommand(body)
+            when (command) {
+                AiCommand.CONFIRM -> {
+                    handleConfirmation(context, threadId)
+                    return
+                }
+                AiCommand.REJECT -> {
+                    handleRejection(context, threadId)
+                    return
+                }
+                null -> {
+                    // Not a control command, treat as chat prompt
+                    handleEdgeAIChat(context, body, threadId)
+                }
+            }
         }
+    }
 
-        // All other @ai commands route to EdgeAI
-        handleEdgeAIChat(context, body, threadId)
+    private enum class AiCommand {
+        CONFIRM, REJECT
+    }
+
+    private fun parseCommand(input: String): AiCommand? {
+        // Remove @ai prefix and whitespace
+        val content = input.substring(3).trim().lowercase()
+        
+        // precise match or prefix match could be dangerous for chat, so let's stick to set matching
+        // or check if it *is* one of the keywords.
+        
+        val confirmKeywords = setOf(
+            "yes", "y", "ok", "okay", "sure", "confirm", "send", 
+            "是", "好", "好的", "發送", "发送", "確認", "确认", "没问题", "沒有問題"
+        )
+        
+        val rejectKeywords = setOf(
+            "no", "n", "cancel", "reject", "abort", "don't", "dont",
+            "否", "不", "取消", "不要"
+        )
+
+        if (content in confirmKeywords) return AiCommand.CONFIRM
+        if (content in rejectKeywords) return AiCommand.REJECT
+        
+        return null
     }
 
     private fun handleConfirmation(context: Context, threadId: Long) {
@@ -169,6 +203,29 @@ object BreezeAIResponder {
             SignalDatabase.threads.update(threadId, true, true)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to insert AI response", e)
+        }
+    }
+    suspend fun transcribeVoiceNote(context: Context, uri: android.net.Uri): Result<String> {
+        return try {
+            val audioBytes = try {
+                 org.thoughtcrime.securesms.providers.BlobProvider.getInstance().getStream(context, uri).use { it.readBytes() }
+            } catch (e: Exception) {
+                 Log.w(TAG, "Failed to read audio blob", e)
+                 return Result.failure(e)
+            }
+
+            // Ensure initialized before use
+            if (!EdgeAIClient.isReady()) {
+                val initialized = EdgeAIClient.initialize(context)
+                if (!initialized) {
+                    return Result.failure(IllegalStateException("Failed to initialize EdgeAI"))
+                }
+            }
+
+            EdgeAIClient.asr(audioBytes)
+        } catch (e: Exception) {
+            Log.e(TAG, "ASR process failed", e)
+            Result.failure(e)
         }
     }
 }

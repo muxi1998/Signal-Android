@@ -4,9 +4,11 @@ import android.content.Context
 import com.mtkresearch.breezeapp.edgeai.EdgeAI
 import com.mtkresearch.breezeapp.edgeai.chatRequest
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.toList
 import org.signal.core.util.logging.Log
 import com.mtkresearch.breezeapp.edgeai.ASRRequest
 import android.net.Uri
+import java.io.IOException
 
 
 /**
@@ -17,12 +19,15 @@ object EdgeAIClient {
     
     private val TAG = Log.tag(EdgeAIClient::class.java)
     private var isInitialized = false
+    private var appContext: Context? = null
     
     /**
      * Initialize connection to BreezeApp-engine.
      * @return true if initialization successful, false otherwise
      */
     suspend fun initialize(context: Context): Boolean {
+        this.appContext = context.applicationContext
+
         if (isInitialized && EdgeAI.isInitialized()) {
             return true
         }
@@ -46,6 +51,20 @@ object EdgeAIClient {
         }
     }
     
+    private suspend fun ensureConnection(context: Context? = null): Boolean {
+        if (isReady()) return true
+        
+        // Use provided context or fallback to cached appContext
+        val targetContext = context ?: appContext
+        
+        if (targetContext != null) {
+            Log.i(TAG, "EdgeAI not ready, attempting auto-reconnect...")
+            return initialize(targetContext)
+        }
+        
+        return false
+    }
+
     /**
      * Send chat request to EdgeAI (non-streaming, collects full response).
      * @param prompt The user's input message
@@ -53,7 +72,7 @@ object EdgeAIClient {
      * @return Complete response text, or error message if failed
      */
     suspend fun chat(prompt: String, systemPrompt: String): Result<String> {
-        if (!isReady()) {
+        if (!ensureConnection()) {
             return Result.failure(IllegalStateException("EdgeAI not initialized"))
         }
         
@@ -86,35 +105,35 @@ object EdgeAIClient {
             Result.failure(e)
         }
     }
+
     /**
-     * Performs ASR on the given audio file.
-     * 
-     * Signal Audio Format: Signal records voice notes as AAC (.m4a) files (Confirmed in AudioRecorder.java, line 93: .withMimeType(MediaUtil.AUDIO_AAC)).
-     * EdgeAI SDK Requirement: ASRRequest requires a raw specific 'ByteArray' of the audio data and a 'model' identifier.
-     * Difference: 'Uri' is just a reference/address to the file. 'ByteArray' is the actual binary content of the file.
-     * 
-     * Therefor, we need 'Context' to resolve the 'Uri' and read the file content into a 'ByteArray'.
+     * Performs ASR on the given audio bytes.
+     * @param audioBytes The raw audio data
      */
-    fun asr(context: Context, audioUri: Uri): Result<String> {
-        Log.d(TAG, "Fake ASR requested for URI: $audioUri")
-        
+    suspend fun asr(audioBytes: ByteArray): Result<String> {
+        if (!ensureConnection()) {
+             return Result.failure(IllegalStateException("EdgeAI not initialized"))
+        }
+
         try {
-            // TODO: Read the file content from the Uri
-            // val rawBytes = context.contentResolver.openInputStream(audioUri)?.use { it.readBytes() }
-            
-            // TODO: validate rawBytes
+            if (audioBytes.isEmpty()) {
+                return Result.failure(IOException("Audio bytes are empty"))
+            }
 
-            // TODO: Construct ASRRequest with the required ByteArray and Model Name
-            // val request = ASRRequest(rawBytes ?: ByteArray(0), model = "whisper-large-v3") 
-            
-            // Log.d(TAG, "Created ASRRequest with ${request.audio.size} bytes") // 'audio' field name might differ, safer to just log creation
-            Log.d(TAG, "Created ASRRequest. Ready to send to engine.")
+            // 3. Construct Request
+            val request = ASRRequest(audioBytes, model="taigi")
 
-            // TODO: Call EdgeAI.asr(request) when ready.
-            // For now, return mock response.
-            return Result.success("這是語音轉文字的測試內容 (Fake ASR)")
+            Log.d(TAG, "Created ASRRequest with ${audioBytes.size} bytes. Sending to engine...")
+
+            // 4. Call Engine
+            val responses = EdgeAI.asr(request).toList()
+
+            // Real Response
+            val transcription = responses.lastOrNull()?.text ?: ""
+            return Result.success(transcription)
+            
         } catch (e: Exception) {
-            Log.e(TAG, "ASR preprocessing failed", e)
+            Log.e(TAG, "ASR request failed", e)
             return Result.failure(e)
         }
     }
@@ -131,6 +150,7 @@ object EdgeAIClient {
         try {
             EdgeAI.shutdown()
             isInitialized = false
+            appContext = null
             Log.i(TAG, "EdgeAI shutdown complete")
         } catch (e: Exception) {
             Log.e(TAG, "Error during EdgeAI shutdown", e)
