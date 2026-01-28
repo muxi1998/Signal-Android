@@ -34,7 +34,7 @@ object EdgeAIClient {
         
         return try {
             Log.i(TAG, "Initializing EdgeAI connection...")
-            EdgeAI.initializeAndWait(context, BreezeConfig.EDGEAI_INIT_TIMEOUT_MS)
+            EdgeAI.initializeAndWait(context, null, BreezeConfig.EDGEAI_INIT_TIMEOUT_MS)
             
             if (EdgeAI.isInitialized()) {
                 Log.i(TAG, "EdgeAI initialized successfully")

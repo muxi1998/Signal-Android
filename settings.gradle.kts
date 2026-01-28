@@ -92,6 +92,8 @@ include(":video-app")
 include(":billing")
 include(":breeze-api")
 include(":breeze")
+include(":breeze-engine")
+include(":EdgeAI")
 
 project(":app").name = "Signal-Android"
 project(":paging").projectDir = file("paging/lib")
@@ -120,5 +122,8 @@ project(":qr-app").projectDir = file("qr/app")
 
 project(":video").projectDir = file("video/lib")
 project(":video-app").projectDir = file("video/app")
+
+project(":breeze-engine").projectDir = file("../BreezeApp/BreezeApp-engine/android/breeze-app-engine")
+project(":EdgeAI").projectDir = file("../BreezeApp/BreezeApp-engine/android/EdgeAI")
 
 rootProject.name = "Signal"

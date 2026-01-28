@@ -84,6 +84,23 @@ class ChatsSettingsFragment : ComposeFragment() {
     override fun onChatBackupsClick() {
       findNavController().safeNavigate(R.id.action_chatsSettingsFragment_to_backupsPreferenceFragment)
     }
+
+    override fun onBreezeDevSettingsClick() {
+      try {
+        val intent = android.content.Intent()
+        intent.setClassName(
+          requireContext(),
+          "com.mtkresearch.breezeapp.engine.ui.EngineSettingsActivity"
+        )
+        startActivity(intent)
+      } catch (e: Exception) {
+        android.widget.Toast.makeText(
+          requireContext(),
+          "Failed to launch Breeze Engine Settings: ${e.message}",
+          android.widget.Toast.LENGTH_LONG
+        ).show()
+      }
+    }
   }
 }
 
@@ -97,6 +114,7 @@ private interface ChatsSettingsCallbacks {
   fun onUseSystemEmojiChanged(enabled: Boolean) = Unit
   fun onEnterKeySendsChanged(enabled: Boolean) = Unit
   fun onChatBackupsClick() = Unit
+  fun onBreezeDevSettingsClick() = Unit
 
   object Empty : ChatsSettingsCallbacks
 }
@@ -196,6 +214,21 @@ private fun ChatsSettingsScreen(
           enabled = state.isRegisteredAndUpToDate(),
           checked = state.enterKeySends,
           onCheckChanged = callbacks::onEnterKeySendsChanged
+        )
+      }
+
+      item {
+        Dividers.Default()
+      }
+
+      item {
+        Texts.SectionHeader("Breeze Dev")
+      }
+
+      item {
+        Rows.TextRow(
+          text = "AI Engine Settings",
+          onClick = callbacks::onBreezeDevSettingsClick
         )
       }
     }

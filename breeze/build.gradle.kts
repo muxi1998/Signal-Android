@@ -31,7 +31,8 @@ dependencies {
   implementation(project(":breeze-api"))
   
   // EdgeAI SDK for AI features (chat, ASR, TTS)
-  implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.8")
+  // EdgeAI SDK for AI features (chat, ASR, TTS)
+  implementation(project(":EdgeAI"))
   
   // Core dependencies
   implementation(project(":core-util"))

@@ -31,8 +31,8 @@ val maxHotfixVersions = 100
 // - breezeReleaseNumber: Increment for each breezePlay release (resets to 1 when upstream updates)
 // - breezeVersionName: Your semantic version (major.minor.patch)
 // - breezeReleaseStage: "alpha", "beta", "rc", or "" for stable
-val breezeReleaseNumber = 9
-val breezeVersionName = "0.9.0"
+val breezeReleaseNumber = 10
+val breezeVersionName = "0.10.0"
 val breezeReleaseStage = "beta"
 val maxBreezeReleases = 1000  // Reserve space for releases per upstream version
 
@@ -162,6 +162,7 @@ android {
         "**/*.dylib",
         "**/*.dll"
       )
+      pickFirsts += setOf("lib/**/libc++_shared.so")
     }
     resources {
       excludes += setOf(
@@ -175,7 +176,8 @@ android {
         "META-INF/LICENSE-notice.md",
         "META-INF/proguard/androidx-annotations.pro",
         "**/*.dylib",
-        "**/*.dll"
+        "**/*.dll",
+        "META-INF/DEPENDENCIES"
       )
     }
   }
@@ -546,6 +548,8 @@ dependencies {
   // Breeze AI modules
   implementation(project(":breeze-api"))
   "breezePlayImplementation"(project(":breeze"))
+  "breezePlayImplementation"(project(":breeze-engine"))
+  "breezePlayImplementation"(files("../../BreezeApp/BreezeApp-engine/android/breeze-app-engine/libs/sherpa-onnx-1.12.6.aar"))
 
   implementation(libs.androidx.fragment.ktx)
   implementation(libs.androidx.appcompat) {
